@@ -80,7 +80,7 @@ AenPi/
 └── colab_demo.py
 ```
 
-> Future versions will add modules like `AenPi.arabic`, `AenPi.hindi`, `AenPi.sentiment`, etc.
+> Future versions will add modules like `AenPi.korean`, `AenPi.pushto`, `AenPi.sentiment`, etc.
 > The top-level `AenPi` package is designed to grow — each language or domain gets its own submodule.
 
 ---
@@ -185,7 +185,7 @@ print(metrics["green_score"])   # lower = more efficient
 
 ```
 ─────────────────────────────────────────────
-  🌿 AenPi Green Metrics: Pipeline
+  AenPi Green Metrics: Pipeline
 ─────────────────────────────────────────────
   ⏱  Execution time : 0.004 s
   🧠 RAM before     : 13.29 MB
@@ -232,6 +232,3 @@ MIT License — free to use, modify, and distribute.
 
 ---
 
-## Author
-
-Built with ❤️ for the Urdu NLP community.
