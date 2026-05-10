@@ -81,7 +81,7 @@ AenPi/
 ```
 
 > Future versions will add modules like `AenPi.korean`, `AenPi.pushto`, `AenPi.sentiment`, etc.
-> The top-level `AenPi` package is designed to grow — each language or domain gets its own submodule.
+> The top-level `AenPi` package is designed to grow — each language or domain gets its own submodules.
 
 ---
 
