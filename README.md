@@ -218,6 +218,7 @@ Copy its contents into a Colab notebook and run cell by cell.
 ## Contributing
 
 Pull requests are welcome. To add a new submodule:
+( for now only changes in urdu will be accepted)
 
 1. Create a new folder under `AenPi/` (e.g., `AenPi/arabic/`)
 2. Add an `__init__.py` that exports your public functions
