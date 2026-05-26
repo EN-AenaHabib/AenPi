@@ -1,15 +1,32 @@
-from AenPi.urdu.preprocessor import preprocess, tokenize, remove_punctuation
-from AenPi.urdu.stopwords import remove_stopwords, URDU_STOPWORDS, get_stopwords
-from AenPi.urdu.normalizer import normalize
-from AenPi.urdu.spell_corrector import spell_correct, spell_correct_text, edit_distance
-from AenPi.urdu.ngram import NGramPredictor, ngram_predict
-from AenPi.urdu.green_metrics import green_metrics, GreenMetrics
+"""
+AenPi — Urdu-first NLP Library
+Modules:
+    normalizer     : Roman Urdu spelling normalizer
+    code_switch    : Urdu/English token-level switch detector
+    sentiment      : Urdu & Roman Urdu sentiment classifier
+    ner            : Urdu Named Entity Recognition
+    summarizer     : Extractive micro-summarizer
+    intent_router  : Lightweight offline intent classifier
+    carbon         : Carbon cost estimator vs LLM APIs
+"""
+
+from .normalizer     import UrduNormalizer
+from .code_switch    import CodeSwitchDetector
+from .sentiment      import UrduSentiment
+from .ner            import UrduNER
+from .summarizer     import UrduSummarizer
+from .intent_router  import IntentRouter
+from .carbon         import CarbonEstimator
+
+__version__ = "0.1.0"
+__author__  = "AenPi Contributors"
 
 __all__ = [
-    "preprocess", "tokenize", "remove_punctuation",
-    "remove_stopwords", "URDU_STOPWORDS", "get_stopwords",
-    "normalize",
-    "spell_correct", "spell_correct_text", "edit_distance",
-    "NGramPredictor", "ngram_predict",
-    "green_metrics", "GreenMetrics",
+    "UrduNormalizer",
+    "CodeSwitchDetector",
+    "UrduSentiment",
+    "UrduNER",
+    "UrduSummarizer",
+    "IntentRouter",
+    "CarbonEstimator",
 ]
