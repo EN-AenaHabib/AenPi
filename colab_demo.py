@@ -100,3 +100,45 @@ def run_ngram():
 result, metrics = urdu.green_metrics(run_ngram, label="NGram Training x100")
 print("Returned result:", result)
 print("Green score    :", metrics["green_score"])
+
+# ============================================================
+# Aleena Tahir's modules — Reduplication Detector (T10) + Pipeline
+# ============================================================
+
+# ── Cell 9: Reduplication Detector (T10) ─────────────────────
+# Detects echo-words (chai-shai, kitab-vitab) and full repeats
+# (garm garm). Pure rule-based — no training, no download.
+redup = urdu.ReduplicationDetector()
+
+examples = [
+    "mujhe chai-shai pila do aur garm garm roti khila do",   # echo + full (Roman)
+    "Karachi se kitab vitab le aao",                          # spaced echo
+    "jaldi jaldi karo",                                       # full reduplication
+    "یہ کتاب وتاب لے آؤ",                                      # echo (Nastaliq)
+    "گرم گرم چائے شائے",                                       # full + echo (Nastaliq)
+]
+for text in examples:
+    print("Text :", text)
+    for m in redup.detect(text):
+        print(f"   {m['text']:<14} base={m['base']:<8} echo={m['echo']:<8} type={m['type']}")
+    print()
+
+print("has_reduplication('kitab vitab') :", redup.has_reduplication("kitab vitab"))
+print("reduplications('chai-shai aao')  :", redup.reduplications("chai-shai aao"))
+
+# ── Cell 10: Pipeline — the unified entry point ──────────────
+# Chain any combination of modules in one call. Stages whose
+# module or dependency is missing are skipped gracefully, so
+# this runs on any machine. (proposal section 7)
+nlp = urdu.Pipeline(["normalize", "tokenize", "codemix", "ner",
+                     "sentiment", "reduplication"])
+
+doc = nlp("Ali Ahmed ne Karachi mein bohat acha kaam kiya, chai-shai bhi pi")
+
+print("Stages run     :", doc.stages)
+print("Tokens         :", doc.tokens)
+print("Entities       :", doc.entities)
+print("Language spans  :", doc.language_spans)
+print("Sentiment      :", doc.sentiment)        # None if 'datasets' not installed
+print("Reduplications :", doc.reduplications)
+print("Doc            :", doc)
