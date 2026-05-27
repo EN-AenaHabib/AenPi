@@ -7,6 +7,8 @@ Clean unified API for Urdu NLP tools
 
 from AenPi.urdu.preprocessor import preprocess, tokenize, remove_punctuation
 from AenPi.urdu.stopwords import remove_stopwords, URDU_STOPWORDS
+from AenPi.urdu.stemmer import UrduStemmer
+from AenPi.urdu.pos_tagger import UrduPOSTagger
 
 # IMPORTANT: class (not function)
 from AenPi.urdu.normalizer import UrduNormalizer
@@ -38,6 +40,8 @@ __all__ = [
     "remove_punctuation",
     "remove_stopwords",
     "URDU_STOPWORDS",
+    "UrduStemmer",
+    "UrduPOSTagger",
 
     # IMPORTANT CLASS
     "UrduNormalizer",
