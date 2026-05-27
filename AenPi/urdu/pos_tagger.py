@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 """
 AenPi Urdu POS Tagger (CRF-based, production ready)
+Author: NuTech AI-23 | F23607023
 
-- No training at runtime
-- Loads pretrained model automatically
-- Falls back to download if missing
+Location: AenPi/urdu/pos_tagger.py
 """
 
 import os
@@ -12,22 +11,19 @@ import gzip
 import pickle
 import urllib.request
 
-import sklearn_crfsuite
-
-
-# ─────────────────────────────────────────────────────────────
-# Model location
-# ─────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------
+# Paths
+# ---------------------------------------------------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(BASE_DIR, "aenpi_pos_crf.pkl.gz")
 
-# optional GitHub fallback (you can change later)
+# Replace this with your real GitHub release link later
 MODEL_URL = "https://github.com/YOUR_USERNAME/AenPi/releases/download/v1/aenpi_pos_crf.pkl.gz"
 
 
-# ─────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------
 # Feature extraction (CRF standard)
-# ─────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------
 def _char_ngrams(word, n):
     return [word[i:i+n] for i in range(len(word) - n + 1)]
 
@@ -47,18 +43,15 @@ def _features(sent, i):
         "isdigit": word.isdigit(),
         "is_first": i == 0,
         "is_last": i == len(sent) - 1,
+        "prev_word": sent[i - 1] if i > 0 else "<START>",
+        "next_word": sent[i + 1] if i < len(sent) - 1 else "<END>",
     }
 
-    # character ngrams
     for bg in _char_ngrams(word, 2):
         feats[f"bg={bg}"] = True
 
     for tg in _char_ngrams(word, 3):
         feats[f"tg={tg}"] = True
-
-    # context (VERY important for CRF)
-    feats["prev_word"] = sent[i-1] if i > 0 else "<START>"
-    feats["next_word"] = sent[i+1] if i < len(sent)-1 else "<END>"
 
     return feats
 
@@ -67,45 +60,57 @@ def _sent_features(sent):
     return [_features(sent, i) for i in range(len(sent))]
 
 
-# ─────────────────────────────────────────────────────────────
-# Download model if missing
-# ─────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------
+# Download model
+# ---------------------------------------------------------------------
 def _download_model():
-    print("[AenPi] Downloading pretrained POS model...")
+    print("[AenPi] Downloading pretrained Urdu POS model...")
     urllib.request.urlretrieve(MODEL_URL, MODEL_PATH)
 
 
-# ─────────────────────────────────────────────────────────────
-# MAIN CLASS
-# ─────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------
+# POS TAGGER CLASS
+# ---------------------------------------------------------------------
 class UrduPOSTagger:
+    """
+    CRF-based Urdu POS Tagger (AenPi)
+
+    Usage:
+        from AenPi.urdu.pos_tagger import UrduPOSTagger
+        tagger = UrduPOSTagger()
+        print(tagger.tag_sentence("میں کتاب پڑھتا ہوں"))
+    """
 
     def __init__(self):
         self.model = None
+        self.labels = []
 
-        # auto-load model
         if not os.path.exists(MODEL_PATH):
             try:
                 _download_model()
-            except:
+            except Exception:
                 raise FileNotFoundError(
-                    "POS model not found and download failed."
+                    "Model not found and download failed. "
+                    "Please upload aenpi_pos_crf.pkl.gz in urdu folder."
                 )
 
         self._load_model()
 
-    # ─────────────────────────────────────────────
-    # LOAD MODEL
-    # ─────────────────────────────────────────────
+    # ---------------------------------------------------------
+    # Load model
+    # ---------------------------------------------------------
     def _load_model(self):
         with gzip.open(MODEL_PATH, "rb") as f:
-            self.model = pickle.load(f)
+            data = pickle.load(f)
 
-        print("[AenPi] POS model loaded successfully")
+        self.model = data["model"]
+        self.labels = data.get("labels", [])
 
-    # ─────────────────────────────────────────────
-    # PREDICT
-    # ─────────────────────────────────────────────
+        print("[AenPi] Urdu POS model loaded successfully")
+
+    # ---------------------------------------------------------
+    # Tag tokens
+    # ---------------------------------------------------------
     def tag(self, tokens):
         feats = _sent_features(tokens)
         preds = self.model.predict([feats])[0]
