@@ -1,25 +1,28 @@
 """
 AenPi — Urdu-first NLP Library
-Modules:
-    normalizer     : Roman Urdu spelling normalizer
-    code_switch    : Urdu/English token-level switch detector
-    sentiment      : Urdu & Roman Urdu sentiment classifier
-    ner            : Urdu Named Entity Recognition
-    summarizer     : Extractive micro-summarizer
-    intent_router  : Lightweight offline intent classifier
-    carbon         : Carbon cost estimator vs LLM APIs
 """
 
-from .normalizer     import UrduNormalizer
-from .code_switch    import CodeSwitchDetector
-from .sentiment      import UrduSentiment
-from .ner            import UrduNER
-from .summarizer     import UrduSummarizer
-from .intent_router  import IntentRouter
-from .carbon         import CarbonEstimator
+from .normalizer import UrduNormalizer
+from .code_switch import CodeSwitchDetector
+from .sentiment import UrduSentiment
+from .ner import UrduNER
+from .summarizer import UrduSummarizer
+from .intent_router import IntentRouter
+from .carbon import CarbonEstimator
+
+from .spell_corrector import (
+    spell_correct,
+    spell_correct_text
+)
+
+from .preprocessor import preprocess
+from .ngram import *
+from .stopwords import *
+
+from .green_metrics import *
 
 __version__ = "0.1.0"
-__author__  = "AenPi Contributors"
+__author__ = "AenPi Contributors"
 
 __all__ = [
     "UrduNormalizer",
@@ -29,4 +32,7 @@ __all__ = [
     "UrduSummarizer",
     "IntentRouter",
     "CarbonEstimator",
+    "spell_correct",
+    "spell_correct_text",
+    "preprocess"
 ]
