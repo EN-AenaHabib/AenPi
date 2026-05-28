@@ -52,6 +52,21 @@ __author__  = "AenPi Contributors"
 __all__ = [
     # class-based modules
     "UrduNormalizer",
+
+    # spell
+    "spell_correct",
+    "spell_correct_text",
+    "edit_distance",
+
+    # ngram
+    "NGramPredictor",
+    "ngram_predict",
+
+    # metrics
+    "green_metrics",
+    "GreenMetrics",
+
+    # new modules
     "CodeSwitchDetector",
     "UrduSentiment",
     "UrduNER",

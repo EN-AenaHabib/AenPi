@@ -42,12 +42,12 @@ CO2 per 10K ops  ~0.00003 g       vs   GPT-4: ~10.5 g  (99.9% less)
 
 **From GitHub (recommended for Colab):**
 ```bash
-pip install git+https://github.com/your-username/AenPi.git
+pip install git+https://github.com/EN-AenaHabib/AenPi.git
 ```
 
 **For local development:**
 ```bash
-git clone https://github.com/your-username/AenPi.git
+git clone https://github.com/EN-AenaHabib/AenPi.git
 cd AenPi
 pip install -e .
 ```
