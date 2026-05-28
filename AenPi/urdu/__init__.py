@@ -1,103 +1,110 @@
 """
-AenPi — Urdu-first NLP Library
-
-Trainable models
-    UrduNormalizer       : Roman Urdu spelling normalizer
-    CodeSwitchDetector   : Urdu/English token-level switch detector
-    UrduSentiment        : Urdu & Roman Urdu sentiment classifier
-    UrduNER              : Urdu Named Entity Recognition
-    UrduSummarizer       : Extractive micro-summarizer
-    IntentRouter         : Lightweight offline intent classifier
-    CarbonEstimator      : Carbon cost estimator vs LLM APIs
-    ReduplicationDetector: Rule-based echo/full reduplication detector (T10)
-
-Unified entry point
-    Pipeline             : chain any combination of modules in one call
-    Doc                  : the annotated result object a Pipeline returns
-
-Function utilities
-    preprocess, tokenize, remove_punctuation, remove_stopwords,
-    get_stopwords, spell_correct, spell_correct_text, edit_distance,
-    ngram_predict, NGramPredictor, GreenMetrics, green_metrics
+AenPi.urdu - Urdu NLP Subpackage
+Clean unified API for Urdu NLP tools
 """
 
-# ── Trainable / class-based modules ───────────────────────────────────────────
-from .normalizer      import UrduNormalizer
-from .code_switch     import CodeSwitchDetector
-from .sentiment       import UrduSentiment
-from .ner             import UrduNER
-from .summarizer      import UrduSummarizer
-from .intent_router   import IntentRouter
-from .carbon          import CarbonEstimator
-from .reduplication   import ReduplicationDetector, find_reduplications
-
-# ── Unified entry point ───────────────────────────────────────────────────────
-from .pipeline        import Pipeline, Doc
-
-# ── Function-based utilities ──────────────────────────────────────────────────
-from .preprocessor    import (
-    preprocess, tokenize, remove_punctuation,
-    remove_diacritics, remove_non_urdu, normalize_whitespace,
+# ================= CORE MODULES =================
+from AenPi.urdu.preprocessor import preprocess, tokenize, remove_punctuation
+from AenPi.urdu.stopwords import remove_stopwords, URDU_STOPWORDS
+from AenPi.urdu.stemmer import UrduStemmer
+from AenPi.urdu.pos_tagger import UrduPOSTagger
+from AenPi.urdu.normalizer import UrduNormalizer          # class, not function
+from AenPi.urdu.spell_corrector import (
+    spell_correct,
+    spell_correct_text,
+    edit_distance,
 )
-from .stopwords       import remove_stopwords, get_stopwords, URDU_STOPWORDS
-from .spell_corrector import (
-    edit_distance, spell_correct, spell_correct_text, load_vocabulary,
+from AenPi.urdu.ngram import NGramPredictor, ngram_predict
+from AenPi.urdu.green_metrics import green_metrics, GreenMetrics
+
+# ================= NEW MODULES =================
+from AenPi.urdu.code_switch import CodeSwitchDetector
+from AenPi.urdu.sentiment import UrduSentiment
+from AenPi.urdu.ner import UrduNER
+from AenPi.urdu.summarizer import UrduSummarizer
+from AenPi.urdu.intent_router import IntentRouter
+from AenPi.urdu.carbon import CarbonEstimator
+
+# ================= EXTENDED MODULES =================
+from AenPi.urdu.transliterator import UrduTransliterator
+from AenPi.urdu.reduplication import (
+    detect_reduplication,
+    normalize_reduplication,
 )
-from .ngram           import NGramPredictor, ngram_predict
-from .green_metrics   import GreenMetrics, green_metrics
+from AenPi.urdu.textstats import (
+    TextStats,
+    text_stats,
+    readability_score,
+)
+from AenPi.urdu.pipeline import (
+    UrduPipeline,
+    pipeline,
+)
 
-__version__ = "0.2.0"
-__author__  = "AenPi Contributors"
-
+# ================= PUBLIC API =================
 __all__ = [
-    # class-based modules
-    "UrduNormalizer",
-
-    # spell
-    "spell_correct",
-    "spell_correct_text",
-    "edit_distance",
-
-    # ngram
-    "NGramPredictor",
-    "ngram_predict",
-
-    # metrics
-    "green_metrics",
-    "GreenMetrics",
-
-    # new modules
-    "CodeSwitchDetector",
-    "UrduSentiment",
-    "UrduNER",
-    "UrduSummarizer",
-    "IntentRouter",
-    "CarbonEstimator",
-    "ReduplicationDetector",
-    "find_reduplications",
-    # unified entry point
-    "Pipeline",
-    "Doc",
-    # preprocessing
+    # --- preprocessor ---
     "preprocess",
     "tokenize",
     "remove_punctuation",
-    "remove_diacritics",
-    "remove_non_urdu",
-    "normalize_whitespace",
-    # stopwords
+
+    # --- stopwords ---
     "remove_stopwords",
-    "get_stopwords",
     "URDU_STOPWORDS",
-    # spell correction
-    "edit_distance",
+
+    # --- stemmer ---
+    "UrduStemmer",
+
+    # --- POS tagger ---
+    "UrduPOSTagger",
+
+    # --- normalizer (class) ---
+    "UrduNormalizer",
+
+    # --- spell corrector ---
     "spell_correct",
     "spell_correct_text",
-    "load_vocabulary",
-    # n-gram
+    "edit_distance",
+
+    # --- n-gram ---
     "NGramPredictor",
     "ngram_predict",
-    # green metrics
-    "GreenMetrics",
+
+    # --- green metrics ---
     "green_metrics",
+    "GreenMetrics",
+
+    # --- code-switching ---
+    "CodeSwitchDetector",
+
+    # --- sentiment ---
+    "UrduSentiment",
+
+    # --- NER ---
+    "UrduNER",
+
+    # --- summarizer ---
+    "UrduSummarizer",
+
+    # --- intent router ---
+    "IntentRouter",
+
+    # --- carbon estimator ---
+    "CarbonEstimator",
+
+    # --- transliterator ---
+    "UrduTransliterator",
+
+    # --- reduplication ---
+    "detect_reduplication",
+    "normalize_reduplication",
+
+    # --- text stats ---
+    "TextStats",
+    "text_stats",
+    "readability_score",
+
+    # --- pipeline ---
+    "UrduPipeline",
+    "pipeline",
 ]
