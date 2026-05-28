@@ -1,49 +1,56 @@
 """
-AenPi.urdu - Urdu NLP Subpackage
-Clean unified API for Urdu NLP tools
+AenPi — Urdu-first NLP Library
+
+Trainable models
+    UrduNormalizer       : Roman Urdu spelling normalizer
+    CodeSwitchDetector   : Urdu/English token-level switch detector
+    UrduSentiment        : Urdu & Roman Urdu sentiment classifier
+    UrduNER              : Urdu Named Entity Recognition
+    UrduSummarizer       : Extractive micro-summarizer
+    IntentRouter         : Lightweight offline intent classifier
+    CarbonEstimator      : Carbon cost estimator vs LLM APIs
+    ReduplicationDetector: Rule-based echo/full reduplication detector (T10)
+
+Unified entry point
+    Pipeline             : chain any combination of modules in one call
+    Doc                  : the annotated result object a Pipeline returns
+
+Function utilities
+    preprocess, tokenize, remove_punctuation, remove_stopwords,
+    get_stopwords, spell_correct, spell_correct_text, edit_distance,
+    ngram_predict, NGramPredictor, GreenMetrics, green_metrics
 """
 
-# ================= CORE MODULES =================
+# ── Trainable / class-based modules ───────────────────────────────────────────
+from .normalizer      import UrduNormalizer
+from .code_switch     import CodeSwitchDetector
+from .sentiment       import UrduSentiment
+from .ner             import UrduNER
+from .summarizer      import UrduSummarizer
+from .intent_router   import IntentRouter
+from .carbon          import CarbonEstimator
+from .reduplication   import ReduplicationDetector, find_reduplications
 
-from AenPi.urdu.preprocessor import preprocess, tokenize, remove_punctuation
-from AenPi.urdu.stopwords import remove_stopwords, URDU_STOPWORDS
-from AenPi.urdu.stemmer import UrduStemmer
-from AenPi.urdu.pos_tagger import UrduPOSTagger
+# ── Unified entry point ───────────────────────────────────────────────────────
+from .pipeline        import Pipeline, Doc
 
-# IMPORTANT: class (not function)
-from AenPi.urdu.normalizer import UrduNormalizer
-
-from AenPi.urdu.spell_corrector import (
-    spell_correct,
-    spell_correct_text,
-    edit_distance
+# ── Function-based utilities ──────────────────────────────────────────────────
+from .preprocessor    import (
+    preprocess, tokenize, remove_punctuation,
+    remove_diacritics, remove_non_urdu, normalize_whitespace,
 )
+from .stopwords       import remove_stopwords, get_stopwords, URDU_STOPWORDS
+from .spell_corrector import (
+    edit_distance, spell_correct, spell_correct_text, load_vocabulary,
+)
+from .ngram           import NGramPredictor, ngram_predict
+from .green_metrics   import GreenMetrics, green_metrics
 
-from AenPi.urdu.ngram import NGramPredictor, ngram_predict
-from AenPi.urdu.green_metrics import green_metrics, GreenMetrics
-
-# ================= NEW MODULES =================
-
-from AenPi.urdu.code_switch import CodeSwitchDetector
-from AenPi.urdu.sentiment import UrduSentiment
-from AenPi.urdu.ner import UrduNER
-from AenPi.urdu.summarizer import UrduSummarizer
-from AenPi.urdu.intent_router import IntentRouter
-from AenPi.urdu.carbon import CarbonEstimator
-
-# ================= PUBLIC API =================
+__version__ = "0.2.0"
+__author__  = "AenPi Contributors"
 
 __all__ = [
-    # core
-    "preprocess",
-    "tokenize",
-    "remove_punctuation",
-    "remove_stopwords",
-    "URDU_STOPWORDS",
-    "UrduStemmer",
-    "UrduPOSTagger",
-
-    # IMPORTANT CLASS
+    # class-based modules
     "UrduNormalizer",
 
     # spell
@@ -65,5 +72,32 @@ __all__ = [
     "UrduNER",
     "UrduSummarizer",
     "IntentRouter",
-    "CarbonEstimator"
+    "CarbonEstimator",
+    "ReduplicationDetector",
+    "find_reduplications",
+    # unified entry point
+    "Pipeline",
+    "Doc",
+    # preprocessing
+    "preprocess",
+    "tokenize",
+    "remove_punctuation",
+    "remove_diacritics",
+    "remove_non_urdu",
+    "normalize_whitespace",
+    # stopwords
+    "remove_stopwords",
+    "get_stopwords",
+    "URDU_STOPWORDS",
+    # spell correction
+    "edit_distance",
+    "spell_correct",
+    "spell_correct_text",
+    "load_vocabulary",
+    # n-gram
+    "NGramPredictor",
+    "ngram_predict",
+    # green metrics
+    "GreenMetrics",
+    "green_metrics",
 ]
