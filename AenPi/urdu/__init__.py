@@ -4,35 +4,53 @@ Clean unified API for Urdu NLP tools
 """
 
 # ================= CORE MODULES =================
-from AenPi.urdu.preprocessor import preprocess, tokenize, remove_punctuation
-from AenPi.urdu.stopwords import remove_stopwords, URDU_STOPWORDS
-from AenPi.urdu.stemmer import UrduStemmer
-from AenPi.urdu.pos_tagger import UrduPOSTagger
-from AenPi.urdu.normalizer import UrduNormalizer          # class, not function
-from AenPi.urdu.spell_corrector import (
+
+from .preprocessor import preprocess, tokenize, remove_punctuation
+from .stopwords import remove_stopwords, URDU_STOPWORDS
+from .stemmer import UrduStemmer
+from .pos_tagger import UrduPOSTagger
+from .normalizer import UrduNormalizer
+
+from .spell_corrector import (
     spell_correct,
     spell_correct_text,
     edit_distance,
 )
-from AenPi.urdu.ngram import NGramPredictor, ngram_predict
-from AenPi.urdu.green_metrics import green_metrics, GreenMetrics
+
+from .ngram import (
+    NGramPredictor,
+    ngram_predict,
+)
+
+from .green_metrics import (
+    green_metrics,
+    GreenMetrics,
+)
 
 # ================= NEW MODULES =================
-from AenPi.urdu.code_switch import CodeSwitchDetector
-from AenPi.urdu.sentiment import UrduSentiment
-from AenPi.urdu.ner import UrduNER
-from AenPi.urdu.summarizer import UrduSummarizer
-from AenPi.urdu.intent_router import IntentRouter
-from AenPi.urdu.carbon import CarbonEstimator
+
+from .code_switch import CodeSwitchDetector
+from .sentiment import UrduSentiment
+from .ner import UrduNER
+from .summarizer import UrduSummarizer
+from .intent_router import IntentRouter
+from .carbon import CarbonEstimator
 
 # ================= EXTENDED MODULES =================
-from AenPi.urdu.transliterator import (
+
+from .transliterator import (
     Transliterator,
     to_nastaliq,
     to_roman,
     transliterate,
 )
-from AenPi.urdu.textstats import (
+
+from .reduplication import (
+    ReduplicationDetector,
+    find_reduplications,
+)
+
+from .textstats import (
     FreqDist,
     TextStats,
     freq_dist,
@@ -40,73 +58,77 @@ from AenPi.urdu.textstats import (
     collocations,
     lexical_diversity,
 )
-from AenPi.urdu.pipeline import (
-    UrduPipeline,
-    pipeline,
+
+from .pipeline import (
+    Pipeline,
+    Doc,
+    AVAILABLE_STAGES,
 )
 
 # ================= PUBLIC API =================
+
 __all__ = [
-    # --- preprocessor ---
+
+    # Preprocessor
     "preprocess",
     "tokenize",
     "remove_punctuation",
 
-    # --- stopwords ---
+    # Stopwords
     "remove_stopwords",
     "URDU_STOPWORDS",
 
-    # --- stemmer ---
+    # Stemmer
     "UrduStemmer",
 
-    # --- POS tagger ---
+    # POS Tagger
     "UrduPOSTagger",
 
-    # --- normalizer (class) ---
+    # Normalizer
     "UrduNormalizer",
 
-    # --- spell corrector ---
+    # Spell Corrector
     "spell_correct",
     "spell_correct_text",
     "edit_distance",
 
-    # --- n-gram ---
+    # N-Gram
     "NGramPredictor",
     "ngram_predict",
 
-    # --- green metrics ---
+    # Green Metrics
     "green_metrics",
     "GreenMetrics",
 
-    # --- code-switching ---
+    # Code Switch
     "CodeSwitchDetector",
 
-    # --- sentiment ---
+    # Sentiment
     "UrduSentiment",
 
-    # --- NER ---
+    # NER
     "UrduNER",
 
-    # --- summarizer ---
+    # Summarizer
     "UrduSummarizer",
 
-    # --- intent router ---
+    # Intent Router
     "IntentRouter",
 
-    # --- carbon estimator ---
+    # Carbon Estimator
     "CarbonEstimator",
 
-    # --- transliterator ---
+    # Transliterator
     "Transliterator",
     "to_nastaliq",
     "to_roman",
     "transliterate",
 
-    # --- reduplication ---
-    "detect_reduplication",
-    "normalize_reduplication",
+    # Reduplication
+    "ReduplicationDetector",
+    "find_reduplications",
 
-    # --- text stats ---
+    # Text Statistics
     "FreqDist",
     "TextStats",
     "freq_dist",
@@ -114,7 +136,8 @@ __all__ = [
     "collocations",
     "lexical_diversity",
 
-    # --- pipeline ---
-    "UrduPipeline",
-    "pipeline",
+    # Pipeline
+    "Pipeline",
+    "Doc",
+    "AVAILABLE_STAGES",
 ]
