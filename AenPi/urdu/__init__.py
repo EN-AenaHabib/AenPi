@@ -26,10 +26,11 @@ from AenPi.urdu.intent_router import IntentRouter
 from AenPi.urdu.carbon import CarbonEstimator
 
 # ================= EXTENDED MODULES =================
-from AenPi.urdu.transliterator import UrduTransliterator
-from AenPi.urdu.reduplication import (
-    detect_reduplication,
-    normalize_reduplication,
+from AenPi.urdu.transliterator import (
+    Transliterator,
+    to_nastaliq,
+    to_roman,
+    transliterate,
 )
 from AenPi.urdu.textstats import (
     TextStats,
@@ -93,7 +94,10 @@ __all__ = [
     "CarbonEstimator",
 
     # --- transliterator ---
-    "UrduTransliterator",
+    "Transliterator",
+    "to_nastaliq",
+    "to_roman",
+    "transliterate",
 
     # --- reduplication ---
     "detect_reduplication",
