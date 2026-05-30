@@ -33,9 +33,12 @@ from AenPi.urdu.transliterator import (
     transliterate,
 )
 from AenPi.urdu.textstats import (
+    FreqDist,
     TextStats,
-    text_stats,
-    readability_score,
+    freq_dist,
+    concordance,
+    collocations,
+    lexical_diversity,
 )
 from AenPi.urdu.pipeline import (
     UrduPipeline,
@@ -104,9 +107,12 @@ __all__ = [
     "normalize_reduplication",
 
     # --- text stats ---
+    "FreqDist",
     "TextStats",
-    "text_stats",
-    "readability_score",
+    "freq_dist",
+    "concordance",
+    "collocations",
+    "lexical_diversity",
 
     # --- pipeline ---
     "UrduPipeline",
