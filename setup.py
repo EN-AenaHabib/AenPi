@@ -9,10 +9,12 @@ setup(
         "AenPi.urdu",
     ],
     package_data={
-        "AenPi.urdu": ["*.py"],
+        "AenPi.urdu": ["*.py", "aenpi_pos_crf.pkl.gz"],  # merged into one key
     },
+    include_package_data=True,
     install_requires=[
         "psutil>=5.9.0",
+        "sklearn-crfsuite",  # ← added
     ],
     python_requires=">=3.7",
 )
