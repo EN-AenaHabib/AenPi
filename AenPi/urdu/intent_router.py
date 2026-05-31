@@ -15,7 +15,7 @@ Solution : A trainable TF-IDF + Logistic Regression intent classifier that:
 
 Usage
 -----
-    from aenpi import IntentRouter
+    from AenPi.urdu import IntentRouter
 
     # Define your intents with example phrases
     router = IntentRouter()
