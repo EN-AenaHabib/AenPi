@@ -1,11 +1,42 @@
 """
-ner.py — Urdu Named Entity Recognition
-=======================================
-Lightweight CRF-based NER using WikiANN Urdu (ur) dataset.
-~20K sentences, clean PER/LOC/ORG labels, train/val/test splits.
-Zero legal/licensing issues. Works offline after first download.
-"""
 
+ner.py — Urdu Named Entity Recognition
+
+=======================================
+
+Lightweight CRF-based NER using WikiANN Urdu (ur) dataset.
+
+~20K sentences, clean PER/LOC/ORG labels, train/val/test splits.
+
+Zero legal/licensing issues. Works offline after first download.
+
+using Wkin dataset
+
+Usage (Inference)
+
+-----------------
+
+    from ner import UrduNER
+
+    ner = UrduNER()
+
+    print(ner.tag("محمد علی لاہور چلے گئے۔"))
+
+    print(ner.get_entities("وزیر اعظم نے اسلام آباد میں تقریر کی"))
+
+
+
+Usage (Training)
+
+----------------
+
+    ner = UrduNER()
+
+    ner.fit()          # trains on full WikiANN ur split (~20K sentences)
+
+    ner.fit(limit=5000) # or a quick subset
+
+"""
 from __future__ import annotations
 
 import os
