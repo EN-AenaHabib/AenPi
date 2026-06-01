@@ -4,7 +4,7 @@ ner.py — Urdu Named Entity Recognition
 Lightweight CRF-based NER using WikiANN Urdu (ur) dataset.
 ~20K sentences, clean PER/LOC/ORG labels, train/val/test splits.
 Zero legal/licensing issues. Works offline after first download.
-
+using Wkin dataset
 Usage (Inference)
 -----------------
     from ner import UrduNER
