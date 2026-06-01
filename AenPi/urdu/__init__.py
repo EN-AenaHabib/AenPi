@@ -22,10 +22,6 @@ from .ngram import (
     ngram_predict,
 )
 
-from .green_metrics import (
-    green_metrics,
-    GreenMetrics,
-)
 
 # ================= NEW MODULES =================
 
@@ -34,7 +30,6 @@ from .sentiment import UrduSentiment
 from .ner import UrduNER
 from .summarizer import UrduSummarizer
 from .intent_router import IntentRouter
-from .carbon import CarbonEstimator
 
 # ================= EXTENDED MODULES =================
 
@@ -96,10 +91,6 @@ __all__ = [
     "NGramPredictor",
     "ngram_predict",
 
-    # Green Metrics
-    "green_metrics",
-    "GreenMetrics",
-
     # Code Switch
     "CodeSwitchDetector",
 
@@ -114,9 +105,6 @@ __all__ = [
 
     # Intent Router
     "IntentRouter",
-
-    # Carbon Estimator
-    "CarbonEstimator",
 
     # Transliterator
     "Transliterator",
