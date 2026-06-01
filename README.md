@@ -227,7 +227,7 @@ stemmer.stem_tokens(["کھانے", "پینے", "جانا"])
 
 ### POS Tagger
 
-CRF-based Part-of-Speech tagger trained on the UD Urdu Treebank and CLE Urdu POS corpus.
+CRF based Part-of-Speech tagger trained on the UD Urdu Treebank and CLE Urdu POS corpus.
 
 ```python
 tagger = urdu.UrduPOSTagger()
