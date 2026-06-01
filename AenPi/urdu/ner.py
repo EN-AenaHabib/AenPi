@@ -1,22 +1,22 @@
 """
-urdu_ner.py — Urdu Named Entity Recognition
-============================================
-Hybrid Inference & Training Module. Fully decoupled.
-Optimized for zero-network execution if a model file is found locally,
-with built-in memory-safe dataset streaming capabilities for training.
+ner.py — Urdu Named Entity Recognition
+=======================================
+Lightweight CRF-based NER using WikiANN Urdu (ur) dataset.
+~20K sentences, clean PER/LOC/ORG labels, train/val/test splits.
+Zero legal/licensing issues. Works offline after first download.
 
 Usage (Inference)
 -----------------
-    from urdu_ner import UrduNER
-
+    from ner import UrduNER
     ner = UrduNER()
     print(ner.tag("محمد علی لاہور چلے گئے۔"))
     print(ner.get_entities("وزیر اعظم نے اسلام آباد میں تقریر کی"))
 
-Usage (Training in Colab)
-------------------------
+Usage (Training)
+----------------
     ner = UrduNER()
-    ner.fit(limit=15000) # Streams safely, will not crash RAM
+    ner.fit()          # trains on full WikiANN ur split (~20K sentences)
+    ner.fit(limit=5000) # or a quick subset
 """
 
 from __future__ import annotations
@@ -25,107 +25,82 @@ import os
 import re
 import unicodedata
 from typing import Dict, List, Optional, Tuple
+
 import joblib
 
-# ── Label Map ────────────────────────────────────────────────────────────────
-# Updated to match the specific structural indices used by the Urdu-Legal dataset
-LABEL_MAP: Dict[str, str] = {
-    "0": "O",
-    "1": "B-PERSON",
-    "2": "I-PERSON",
-    "3": "B-LOCATION",
-    "4": "I-LOCATION",
-    "5": "B-ORG",
-    "6": "I-ORG",
-    "7": "B-DATE",
-    "8": "I-DATE",
-    "9": "B-LEGAL_ACTION",
-    "10": "I-LEGAL_ACTION",
-}
+# ── Label Map ─────────────────────────────────────────────────────────────────
+# WikiANN label order (integer index → BIO string):
+# 0=O  1=B-PER  2=I-PER  3=B-ORG  4=I-ORG  5=B-LOC  6=I-LOC
+WIKIANN_LABELS = ["O", "B-PER", "I-PER", "B-ORG", "I-ORG", "B-LOC", "I-LOC"]
 
-# Inverse lookup map for data alignment tasks during training loops
-INV_LABEL_MAP = {v: k for k, v in LABEL_MAP.items()}
-
-# ── Urdu Unicode Ranges & Punctuation Matchers ─────────────────────────────────
-_URDU_RANGE = re.compile(r"[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]")
-_DIGIT_RE   = re.compile(r"[\d\u0660-\u0669\u06F0-\u06F9]")   # ASCII + Arabic-Indic
+# ── Urdu Unicode & digit patterns ─────────────────────────────────────────────
+_URDU_RE  = re.compile(r"[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]")
+_DIGIT_RE = re.compile(r"[\d\u0660-\u0669\u06F0-\u06F9]")
 
 
-# ── Feature Extractor ────────────────────────────────────────────────────────
+# ── Feature Extractor ──────────────────────────────────────────────────────────
 def _features(tokens: List[str], i: int) -> dict:
-    """
-    Rich, Urdu-aware feature engine for sequence modelling.
-    Note: Do not mutate keys or structures without executing a full training run.
-    """
-    w  = tokens[i]
-    n  = len(tokens)
+    """Rich Urdu-aware CRF feature function (window ±2)."""
+    w = tokens[i]
+    n = len(tokens)
 
-    # ── Current token geometry ───────────────────────────────────
+    if not w:
+        return {"bias": 1.0}
+
     feats: dict = {
-        "bias":         1.0,
-        "word":         w,
-        "len":          min(len(w), 20),
-        "suffix1":      w[-1:],
-        "suffix2":      w[-2:],
-        "suffix3":      w[-3:],
-        "prefix1":      w[:1],
-        "prefix2":      w[:2],
-        "prefix3":      w[:3],
-        "is_urdu":      bool(_URDU_RANGE.search(w)),
-        "is_digit":     bool(_DIGIT_RE.fullmatch(w)),
-        "has_digit":    bool(_DIGIT_RE.search(w)),
-        "is_punct":     unicodedata.category(w[0]).startswith("P") if w else False,
-        "all_upper":    w.isupper(), 
-        "is_first":     i == 0,
-        "is_last":      i == n - 1,
-        "rel_pos":      round(i / max(n - 1, 1), 1),
+        "bias":      1.0,
+        "word":      w,
+        "len":       min(len(w), 20),
+        "suffix1":   w[-1:],
+        "suffix2":   w[-2:],
+        "suffix3":   w[-3:],
+        "prefix1":   w[:1],
+        "prefix2":   w[:2],
+        "prefix3":   w[:3],
+        "is_urdu":   bool(_URDU_RE.search(w)),
+        "is_digit":  bool(_DIGIT_RE.fullmatch(w)),
+        "has_digit": bool(_DIGIT_RE.search(w)),
+        "is_punct":  unicodedata.category(w[0]).startswith("P"),
+        "is_first":  i == 0,
+        "is_last":   i == n - 1,
+        "rel_pos":   round(i / max(n - 1, 1), 1),
     }
 
-    # ── Historical context markers (window = 2) ───────────────────
+    # Previous context (window = 2)
     if i >= 1:
         p1 = tokens[i - 1]
         feats.update({
             "prev1":         p1,
             "prev1_suffix2": p1[-2:],
-            "prev1_is_urdu": bool(_URDU_RANGE.search(p1)),
+            "prev1_is_urdu": bool(_URDU_RE.search(p1)),
+            "bigram_prev":   f"{p1}|{w}",
         })
     else:
         feats["prev1"] = "<START>"
 
     if i >= 2:
         p2 = tokens[i - 2]
-        feats.update({
-            "prev2":         p2,
-            "prev2_suffix2": p2[-2:],
-        })
+        feats.update({"prev2": p2, "prev2_suffix2": p2[-2:]})
     else:
         feats["prev2"] = "<START2>"
 
-    # ── Future context markers (window = 2) ───────────────────────
+    # Next context (window = 2)
     if i < n - 1:
         n1 = tokens[i + 1]
         feats.update({
             "next1":         n1,
             "next1_suffix2": n1[-2:],
-            "next1_is_urdu": bool(_URDU_RANGE.search(n1)),
+            "next1_is_urdu": bool(_URDU_RE.search(n1)),
+            "bigram_next":   f"{w}|{n1}",
         })
     else:
         feats["next1"] = "<END>"
 
     if i < n - 2:
         n2 = tokens[i + 2]
-        feats.update({
-            "next2":         n2,
-            "next2_suffix2": n2[-2:],
-        })
+        feats.update({"next2": n2, "next2_suffix2": n2[-2:]})
     else:
         feats["next2"] = "<END2>"
-
-    # ── Bigram configurations ────────────────────────────────────
-    if i >= 1:
-        feats["bigram_prev"] = f"{tokens[i-1]}|{w}"
-    if i < n - 1:
-        feats["bigram_next"] = f"{w}|{tokens[i+1]}"
 
     return feats
 
@@ -134,21 +109,25 @@ def _sentence_features(tokens: List[str]) -> List[dict]:
     return [_features(tokens, i) for i in range(len(tokens))]
 
 
-# ── Entity Span Merger ───────────────────────────────────────────────────────
+# ── BIO Span Merger ────────────────────────────────────────────────────────────
 def _merge_spans(tagged: List[Tuple[str, str]]) -> Dict[str, List[str]]:
-    """Converts a sequence of flat BIO tuples into clustered string groupings."""
+    """
+    Converts flat BIO token list into grouped entity dict.
+    Fixed: flush() now always resets buf/etype to prevent duplication.
+    """
     entities: Dict[str, List[str]] = {}
     buf: List[str] = []
     etype: Optional[str] = None
 
-    def flush():
+    def flush() -> None:
+        nonlocal buf, etype
         if etype and buf:
             entities.setdefault(etype, []).append(" ".join(buf))
+        buf, etype = [], None  # always reset — fixes silent duplication bug
 
     for token, label in tagged:
         if label == "O":
             flush()
-            buf, etype = [], None
         elif label.startswith("B-"):
             flush()
             etype = label[2:]
@@ -158,18 +137,19 @@ def _merge_spans(tagged: List[Tuple[str, str]]) -> Dict[str, List[str]]:
             if t == etype:
                 buf.append(token)
             else:
+                # I-tag mismatch → treat as new entity start
                 flush()
                 etype, buf = t, [token]
 
-    flush()
+    flush()  # flush final entity
     return entities
 
 
-# ── Main Processing Class ────────────────────────────────────────────────────
+# ── Main Class ─────────────────────────────────────────────────────────────────
 class UrduNER:
     """
-    Inference & training wrapper logic optimized for high efficiency Urdu NER.
-    Uses structural token splitting to split attached punctuation natively.
+    Lightweight Urdu NER using CRF + WikiANN (ur) dataset.
+    Trains in ~2 min on CPU. Model file is ~5–15 MB.
     """
 
     _DEFAULT_MODEL = os.path.join(
@@ -180,131 +160,219 @@ class UrduNER:
     def __init__(self, model_path: Optional[str] = None) -> None:
         self.model_path: str = model_path or self._DEFAULT_MODEL
         self._crf = None
-        
-        # Load automatically if artifact is found in runtime path
+        self._label_list: List[str] = WIKIANN_LABELS
+
         if os.path.exists(self.model_path):
             self._load()
 
     def _load(self) -> None:
         try:
-            self._crf = joblib.load(self.model_path)
-            print(f"✅ Model file successfully mapped from: {self.model_path}")
+            payload = joblib.load(self.model_path)
+            # Support both plain CRF saves and dict payload with label list
+            if isinstance(payload, dict):
+                self._crf = payload["crf"]
+                self._label_list = payload.get("label_list", WIKIANN_LABELS)
+            else:
+                self._crf = payload
+            print(f"✅ Model loaded from: {self.model_path}")
         except Exception as exc:
-            raise RuntimeError(f"❌ Unreadable artifact at {self.model_path}: {exc}") from exc
+            raise RuntimeError(f"❌ Cannot load model at {self.model_path}: {exc}") from exc
 
     def tokenize(self, text: str) -> List[str]:
-        """Punctuation-aware tokenizer isolating attachments like 'لاہور۔'"""
-        return re.findall(r"\w+|[^\w\s]", text, re.UNICODE)
-
-    def fit(self, limit: int = 15000) -> None:
         """
-        Memory safe streaming fit implementation. Reads elements directly
-        from source data chunks sequentially to safely operate within low RAM bounds.
+        Urdu-aware tokenizer.
+        - Splits on zero-width non-joiners (common in Urdu text)
+        - Isolates punctuation attached to words like 'لاہور۔'
         """
-        import sklearn_crfsuite
-        from datasets import load_dataset
+        text = text.replace("\u200c", " ").replace("\u200d", " ")
+        return re.findall(r"[\w\u0600-\u06FF]+|[^\w\s]", text, re.UNICODE)
 
-        print(f"📥 Commencing streaming pipeline on cheemasohail/Urdu-Legal_ner_corpora...")
-        ds = load_dataset("cheemasohail/Urdu-Legal_ner_corpora", split="train", streaming=True)
-        
+    # ── Training ───────────────────────────────────────────────────────────────
+    def fit(self, limit: Optional[int] = None) -> None:
+        """
+        Train CRF on WikiANN Urdu (ur).
+        Dataset: ~20K sentences, ~163K tokens, 3 entity types.
+        Full training takes ~2–3 min on CPU.
+
+        Args:
+            limit: cap number of training sentences (None = use all).
+        """
+        try:
+            import sklearn_crfsuite
+            from datasets import load_dataset
+        except ImportError as e:
+            raise ImportError(
+                "Install dependencies: pip install sklearn-crfsuite datasets"
+            ) from e
+
+        print("📥 Loading WikiANN Urdu dataset (lightweight, ~20K sentences)...")
+        ds = load_dataset("unimelb-nlp/wikiann", "ur")
+
+        # WikiANN has proper ClassLabel features — read label names directly
+        # This is the correct way; never hardcode index→label mapping
+        label_list: List[str] = ds["train"].features["ner_tags"].feature.names
+        self._label_list = label_list
+        print(f"   Labels detected: {label_list}")
+
+        train_split = ds["train"]
+        if limit:
+            train_split = train_split.select(range(min(limit, len(train_split))))
+
+        print(f"   Training on {len(train_split)} sentences...")
+
         X_train, y_train = [], []
-        processed_count = 0
+        skipped = 0
 
-        for item in ds:
-            if 'tokens' in item and 'ner_tags' in item:
-                # Isolate specific sample tokens and clean indices
-                tokens = item['tokens']
-                tags = [str(t) for t in item['ner_tags']]
-                
-                X_train.append(_sentence_features(tokens))
-                y_train.append(tags)
-                processed_count += 1
-                
-            if processed_count >= limit:
-                break
-        
-        print(f"🚀 Initializing L-BFGS Optimization over {processed_count} sequence arrays...")
+        for item in train_split:
+            tokens = item["tokens"]
+            tags   = item["ner_tags"]
+
+            # Validate lengths match before appending
+            if not tokens or len(tokens) != len(tags):
+                skipped += 1
+                continue
+
+            X_train.append(_sentence_features(tokens))
+            # Map integer indices → label strings using dataset's own ClassLabel
+            y_train.append([label_list[t] for t in tags])
+
+        if skipped:
+            print(f"   ⚠️  Skipped {skipped} malformed samples.")
+
+        print(f"🚀 Training CRF (lbfgs, max_iter=150)...")
         self._crf = sklearn_crfsuite.CRF(
-            algorithm='lbfgs',
-            c1=0.1,
-            c2=0.01,
-            max_iterations=60,
+            algorithm="lbfgs",
+            c1=0.05,       # L1 — slightly lower promotes recall
+            c2=0.01,       # L2 — keeps weights stable
+            max_iterations=150,  # enough for WikiANN to converge
             all_possible_transitions=True,
-            verbose=False
+            verbose=False,
         )
         self._crf.fit(X_train, y_train)
-        
-        # Serialize immediately to runtime memory target
-        joblib.dump(self._crf, self.model_path)
-        print(f"✅ Training step complete. Binary saved cleanly to: {self.model_path}")
+
+        # Evaluate on validation split
+        self._evaluate(ds["validation"], label_list)
+
+        # Save both CRF and label list together
+        joblib.dump({"crf": self._crf, "label_list": label_list}, self.model_path)
+        print(f"✅ Model saved to: {self.model_path}")
+
+    def _evaluate(self, val_split, label_list: List[str]) -> None:
+        """Quick F1 report on validation set after training."""
+        try:
+            from sklearn_crfsuite import metrics as crf_metrics
+        except ImportError:
+            return
+
+        X_val, y_val = [], []
+        for item in val_split:
+            tokens = item["tokens"]
+            tags   = item["ner_tags"]
+            if not tokens or len(tokens) != len(tags):
+                continue
+            X_val.append(_sentence_features(tokens))
+            y_val.append([label_list[t] for t in tags])
+
+        y_pred = self._crf.predict(X_val)
+        entity_labels = [l for l in label_list if l != "O"]
+
+        print("\n📊 Validation Results:")
+        print(crf_metrics.flat_classification_report(
+            y_val, y_pred, labels=entity_labels, digits=3
+        ))
+
+    # ── Inference ──────────────────────────────────────────────────────────────
+    def _check_loaded(self) -> None:
+        if self._crf is None:
+            raise RuntimeError(
+                "Model not loaded. Run .fit() to train or provide a model file."
+            )
 
     def tag(self, text: str) -> List[Tuple[str, str]]:
-        """Process a raw text string context into typed IOB tokens."""
-        if not self._crf:
-            raise RuntimeError("CRF Core unmapped. Please execute the .fit() method or place weights file.")
-        
+        """Tag a single Urdu string. Returns list of (token, label) tuples."""
+        self._check_loaded()
         tokens = self.tokenize(text)
         if not tokens:
             return []
-            
         preds = self._crf.predict([_sentence_features(tokens)])[0]
-        return [(t, LABEL_MAP.get(p, p)) for t, p in zip(tokens, preds)]
+        # Safe fallback: unknown prediction index → "O"
+        return [(t, p if p in self._label_list else "O") for t, p in zip(tokens, preds)]
 
     def tag_batch(self, texts: List[str]) -> List[List[Tuple[str, str]]]:
-        """Process multiple strings through vector pipelines simultaneously."""
-        if not self._crf:
-            raise RuntimeError("CRF Core unmapped.")
-            
-        split_texts = [self.tokenize(t) for t in texts]
-        active_items = [(idx, tokens) for idx, tokens in enumerate(split_texts) if tokens]
+        """Tag multiple strings efficiently in one CRF call."""
+        self._check_loaded()
 
-        if not active_items:
+        tokenized = [self.tokenize(t) for t in texts]
+        # Only process non-empty; preserve original indices
+        active = [(i, toks) for i, toks in enumerate(tokenized) if toks]
+
+        if not active:
             return [[] for _ in texts]
 
-        indices, processing_batches = zip(*active_items)
-        features_matrix = [_sentence_features(tokens) for tokens in processing_batches]
-        predictions_matrix = self._crf.predict(features_matrix)
+        indices, batches = zip(*active)
+        feats   = [_sentence_features(toks) for toks in batches]
+        all_pred = self._crf.predict(feats)
 
         out: List[List[Tuple[str, str]]] = [[] for _ in texts]
-        for original_idx, tokens, labels in zip(indices, processing_batches, predictions_matrix):
-            out[original_idx] = [(t, LABEL_MAP.get(l, l)) for t, l in zip(tokens, labels)]
+        for orig_i, toks, preds in zip(indices, batches, all_pred):
+            out[orig_i] = [
+                (t, p if p in self._label_list else "O")
+                for t, p in zip(toks, preds)
+            ]
         return out
 
     def get_entities(self, text: str) -> Dict[str, List[str]]:
+        """Return grouped entity dict for a single text."""
         return _merge_spans(self.tag(text))
 
     def get_entities_batch(self, texts: List[str]) -> List[Dict[str, List[str]]]:
-        return [_merge_spans(tagged_output) for tagged_output in self.tag_batch(texts)]
+        """Return grouped entity dicts for multiple texts."""
+        return [_merge_spans(tagged) for tagged in self.tag_batch(texts)]
+
+    def save(self, path: str) -> None:
+        """Explicitly save model to a custom path."""
+        self._check_loaded()
+        joblib.dump({"crf": self._crf, "label_list": self._label_list}, path)
+        print(f"✅ Model saved to: {path}")
+
+    def load(self, path: str) -> None:
+        """Load model from a custom path."""
+        self.model_path = path
+        self._load()
 
     def __repr__(self) -> str:
-        return f"UrduNER(mapped_path='{self.model_path}')"
+        status = "loaded" if self._crf else "not loaded"
+        return f"UrduNER(model='{self.model_path}', status={status})"
 
 
-# ── Immediate Verification Runtime Execution Block ────────────────────────────
+# ── Quick Sanity Check ─────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    # 1. Initialize instance to local current folder execution target
     ner = UrduNER(model_path="urdu_ner_crf.joblib")
-    
-    # 2. Trigger low-RAM profile extraction model training
-    ner.fit(limit=12000)
-    
-    # 3. Execution Pipeline Sanity Checks
-    sample_phrase = "جسٹس فائز عیسی نے لاہور اور اسلام آباد ہائی کورٹ میں سماعت مکمل کی"
-    print("\n" + "="*40 + "\n🔎 VERIFICATION TEST RESULTS\n" + "="*40)
-    
-    # Test flat token mapping output
-    print("\n--- Raw Word Tokens Mapping Profile ---")
-    for word, tag in ner.tag(sample_phrase):
-        print(f"{word:18} -> {tag}")
-        
-    # Test dictionary entity grouping matrix parsing layout
-    print("\n--- Parsed Grouped Structured Entity Map ---")
-    print(ner.get_entities(sample_phrase))
-    
-    # 4. Trigger Automatic Download Mechanism For Your Google Colab Browser Session
+
+    # Train (remove limit=None for full dataset)
+    ner.fit(limit=None)
+
+    test_sentences = [
+        "جسٹس فائز عیسی نے لاہور اور اسلام آباد ہائی کورٹ میں سماعت مکمل کی",
+        "محمد علی جناح نے پاکستان مسلم لیگ کی قیادت کی",
+        "وزیر اعظم نے اقوام متحدہ کے اجلاس میں شرکت کی",
+    ]
+
+    print("\n" + "=" * 50)
+    print("🔎 INFERENCE TEST")
+    print("=" * 50)
+
+    for sent in test_sentences:
+        print(f"\n📝 {sent}")
+        print("   Tokens:")
+        for word, tag in ner.tag(sent):
+            marker = f"  ← {tag}" if tag != "O" else ""
+            print(f"     {word:20}{marker}")
+        print("   Entities:", ner.get_entities(sent))
+
+    # Colab download hook
     try:
         from google.colab import files
-        print("\n📥 Initiating secure binary bridge file download...")
         files.download("urdu_ner_crf.joblib")
     except ImportError:
-        print("\n💡 Standalone environment running outside Colab. Output stored to local repository folder.")
+        print("\n💡 Local run — model saved to urdu_ner_crf.joblib")
