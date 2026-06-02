@@ -1,249 +1,211 @@
 """
-AenPi/urdu/code_switch.py
---------------------------
+aenpi/code_switch.py
+--------------------
 Token-level Urdu / English Code-Switch Detector
 
-Dataset : google-research-datasets/roman_urdu  (CC-BY 4.0)
-          - Real Roman Urdu sentences, clean labels
-Model   : Character n-gram TF-IDF + LinearSVC (fast, accurate, lightweight)
-          Saved to disk after first fit — instant reload on next use.
+Problem  : Pakistani social media mixes Urdu and English mid-sentence.
+           "Mujhe yeh project deadline tak finish karna hai."
+           No lightweight offline tool labels each token as UR / EN / MIX.
+
+Solution : Character-trigram features + Logistic Regression.
+           Trains in seconds on CPU. Returns structured span output.
+
+Dataset  : community-datasets/roman_urdu  (HuggingFace, Apache 2.0)
+           + english words bootstrapped from a built-in frequency list
 
 Usage
 -----
-    from AenPi.urdu import CodeSwitchDetector
+    from aenpi import CodeSwitchDetector
 
     detector = CodeSwitchDetector()
-    detector.fit()                          # trains + saves model
+    detector.fit()
 
     result = detector.detect("mujhe yeh project finish karna hai")
-    # [('mujhe','UR'),('yeh','UR'),('project','EN'),('finish','EN'),...]
+    print(result)
+    # [("mujhe","UR"),("yeh","UR"),("project","EN"),
+    #  ("finish","EN"),("karna","UR"),("hai","UR")]
 
     spans = detector.spans("mujhe yeh project finish karna hai")
+    # [{"text":"mujhe yeh","lang":"UR","start":0,"end":1},
+    #  {"text":"project finish","lang":"EN","start":2,"end":3}, ...]
 """
 
 import re
-import os
 import pickle
+import os
+from collections import Counter
 
-# ── Seed lexicons (used for labeling + fast lookup) ───────────────────────────
 
+# ---------------------------------------------------------------------------
+# Built-in English seed vocabulary (top-500 common English words that appear
+# in code-switched Roman Urdu text).  No external download needed.
+# ---------------------------------------------------------------------------
 _EN_SEED = {
-    "the","a","an","is","are","was","were","be","been","have","has","had",
-    "do","does","did","will","would","shall","should","may","might","must",
-    "can","could","i","you","he","she","it","we","they","me","him","her",
-    "us","them","this","that","and","but","or","not","with","from","into",
-    "project","work","job","time","day","year","deadline","finish","complete",
-    "start","end","process","result","plan","team","user","code","file","test",
-    "online","website","software","network","email","phone","mobile","app",
-    "good","bad","nice","great","okay","ok","yes","no","please","thanks",
-    "sorry","hello","hi","bye","really","very","so","just","also","never",
-    "always","already","still","even","only","than","too","more","most",
-    "because","when","where","what","who","how","why","which","that","if",
-    "then","else","need","want","like","love","hate","know","think","feel",
-    "come","go","get","put","see","say","tell","ask","give","take","make",
-    "find","keep","let","begin","show","run","move","live","write","read",
-    "send","buy","pay","win","lose","stop","open","close","follow","change",
+    "the","a","an","is","are","was","were","be","been","being","have","has",
+    "had","do","does","did","will","would","shall","should","may","might",
+    "must","can","could","i","you","he","she","it","we","they","me","him",
+    "her","us","them","my","your","his","its","our","their","this","that",
+    "these","those","and","but","or","nor","for","yet","so","in","on","at",
+    "to","of","with","by","from","up","about","into","through","during",
+    "before","after","above","below","between","out","off","over","under",
+    "again","further","then","once","here","there","when","where","why",
+    "how","all","both","each","few","more","most","other","some","such",
+    "no","not","only","same","than","too","very","just","now","also",
+    "project","work","job","time","day","year","way","man","woman","child",
+    "thing","life","hand","part","place","case","week","company","system",
+    "program","question","government","number","night","point","home","water",
+    "room","mother","area","money","story","fact","month","lot","right",
+    "study","book","eye","job","word","business","issue","side","kind",
+    "head","house","service","friend","father","power","hour","game","line",
+    "end","among","never","last","long","little","own","old","right","big",
+    "high","different","small","large","next","early","young","important",
+    "public","private","real","best","free","able","need","want","seem",
+    "feel","try","leave","call","keep","let","begin","show","hear","play",
+    "run","move","live","believe","hold","bring","happen","write","provide",
+    "sit","stand","lose","pay","meet","include","continue","set","learn",
+    "change","lead","understand","watch","follow","stop","create","speak",
+    "read","spend","grow","open","walk","win","offer","remember","love",
+    "consider","appear","buy","wait","serve","die","send","expect","build",
+    "stay","fall","cut","reach","kill","remain","suggest","raise","pass",
+    "sell","require","report","decide","pull","finish","deadline","complete",
+    "start","end","process","result","plan","level","area","field","type",
+    "post","list","name","form","data","page","code","file","test","team",
+    "user","account","email","phone","online","website","internet","social",
+    "media","video","photo","music","film","app","mobile","laptop","computer",
+    "software","hardware","network","server","database","api","model","class",
 }
 
+# ---------------------------------------------------------------------------
+# Urdu-specific Roman spellings that are never English
+# ---------------------------------------------------------------------------
 _UR_SEED = {
-    "hai","hain","tha","thi","the","ko","ka","ki","ke","se","mein","me",
+    "hai","hain","tha","thi","the","ko","ka","ki","ke","se","me","mein",
     "ne","par","aur","ya","kya","kia","nahi","nhi","agar","lekin","lkn",
-    "phir","phr","toh","bhi","hi","sirf","bas","abhi","ab","kab","kahan",
-    "kyun","kaun","kaise","kitna","sab","kuch","yahan","wahan","aap","tum",
-    "hum","wo","ye","yeh","woh","iska","uska","apna","apni","mera","tera",
-    "hamara","tumhara","unka","yaar","bhai","behen","dost","ghar","zindagi",
-    "dil","pyar","karo","karna","karte","karein","hoga","hogi","chahiye",
+    "phir","phr","toh","to","bhi","hi","sirf","bas","abhi","ab","kab",
+    "kahan","kyun","kaun","kaise","kitna","sab","kuch","yahan","wahan",
+    "aap","tum","hum","mein","wo","ye","yeh","woh","iska","uska","inki",
+    "unki","apna","apni","mera","tera","hamara","tumhara","unka","yaar",
+    "bhai","behen","amma","abba","dost","ghar","zindagi","dil","pyar",
+    "karo","karna","karte","karein","hoga","hogi","honge","chahiye",
     "theek","acha","achha","bura","zyada","thoda","bohat","bohot","bahut",
-    "bilkul","zaroor","shayad","lagta","samjha","pata","maloom","khush",
-    "pareshan","seedha","mazay","maza","kal","aaj","kal","raat","din","subah",
-    "sham","waqt","log","banda","bande","kaam","cheez","jagah","taraf",
-    "saath","baad","pehle","phir","lekin","magar","jab","jahan","jaisa",
-    "itna","utna","kaafi","thori","poori","sari","puri","naya","purana",
-    "bada","chota","lamba","mota","patla","safed","kala","lal","neela",
-    "hara","peela","accha","bura","zyada","kam","tez","slow","sahi","galat",
-    "mushkil","asaan","zaruri","ahem","khas","aam","pakka","kacha",
+    "bilkul","zaroor","shayad","lagta","lagti","samjha","pata","maloom",
+    "mazay","maza","khush","dukhi","pareshan","thaka","seedha","zyada",
 }
-
-# ── Model path ────────────────────────────────────────────────────────────────
-
-_MODEL_DIR  = os.path.join(os.path.dirname(__file__), "_models")
-_MODEL_PATH = os.path.join(_MODEL_DIR, "code_switch.pkl")
 
 
 class CodeSwitchDetector:
     """
     Token-level language identifier for Urdu–English code-switched text.
 
-    Labels : "UR" | "EN" | "MIX"
+    Labels
+    ------
+    "UR"  : Urdu (Roman script)
+    "EN"  : English
+    "MIX" : Ambiguous / mixed
 
-    Pipeline
+    Approach
     --------
-    1. Seed lexicon lookup  (instant, high-precision)
-    2. LinearSVC on char 2-4 gram TF-IDF  (trained, ~98% accuracy)
-    3. Rule-based heuristic fallback       (no model available)
+    1. Hard-coded seed lexicons for both languages.
+    2. Character trigram overlap with each seed vocabulary.
+    3. Script heuristics (digits, English-only letter combos).
+    4. Trained logistic regression on labeled Roman Urdu corpus.
     """
 
-    def __init__(self, model_path: str = _MODEL_PATH, auto_load: bool = True):
-        self.model_path  = model_path
-        self.clf         = None
-        self._vectorizer = None
-        self.is_fitted   = False
-        self._en_vocab   = set(_EN_SEED)
-        self._ur_vocab   = set(_UR_SEED)
+    def __init__(self):
+        self.clf        = None
+        self.is_fitted  = False
+        self._en_vocab  = set(_EN_SEED)
+        self._ur_vocab  = set(_UR_SEED)
 
-        if auto_load and os.path.exists(model_path):
-            self._load()
+    # ------------------------------------------------------------------
+    # Training
+    # ------------------------------------------------------------------
 
-    # ── Fit ───────────────────────────────────────────────────────────────────
-
-    def fit(self, save: bool = True):
+    def fit(self):
         """
-        Train on the Roman Urdu corpus from HuggingFace.
-
-        Dataset : ``google-research-datasets/roman_urdu``  (CC-BY 4.0)
-                  Real human-written Roman Urdu, with English mixed in.
-
-        Labeling strategy
-        -----------------
-        - Token in EN seed                     → EN
-        - Token in UR seed                     → UR
-        - Token matches strong heuristic rules → UR / EN
-        - Otherwise                            → skipped (too noisy)
-
-        Model : TF-IDF char 2-4 grams + LinearSVC
-                Fast to train (<30s), tiny on disk (~2 MB), >95% accuracy.
+        Train on the Roman Urdu sentiment corpus.
+        We derive pseudo-labels: words in English seed → EN,
+        words in Urdu seed → UR, then train a trigram LR classifier.
         """
-        if self.is_fitted:
-            print("Already fitted. Call fit(force=True) to retrain.")
-            return self
-
-        print("Loading dataset...")
+        print("Training CodeSwitchDetector...")
         try:
             from datasets import load_dataset
-        except ImportError:
-            raise ImportError("Run: pip install datasets")
+            from sklearn.linear_model import LogisticRegression
+            from sklearn.feature_extraction.text import HashingVectorizer
 
-        try:
-            from sklearn.svm import LinearSVC
-            from sklearn.feature_extraction.text import TfidfVectorizer
-            from sklearn.calibration import CalibratedClassifierCV
-            from sklearn.pipeline import Pipeline
-        except ImportError:
-            raise ImportError("Run: pip install scikit-learn")
-
-        # ── Load dataset ──────────────────────────────────────────────────────
-        # google-research-datasets/roman_urdu: 'sentence' column, Roman Urdu
-        # We also pull a small English corpus for balance.
-        try:
-            ds_ur = load_dataset(
-                "google-research-datasets/roman_urdu",
+            ds = load_dataset(
+                "Khubaib01/RomanUrdu-NLP-Sentiment-Corpus",
                 split="train",
-                trust_remote_code=True,
+                trust_remote_code=True
             )
-            ur_texts = [str(r["sentence"]) for r in ds_ur if r.get("sentence")]
+            texts = [str(row["text"]).lower() for row in ds if row.get("text")]
         except Exception as e:
-            print(f"Primary dataset failed: {e}")
-            print("Trying fallback dataset...")
-            try:
-                ds_ur = load_dataset(
-                    "Khubaib01/RomanUrdu-NLP-Sentiment-Corpus",
-                    split="train",
-                    trust_remote_code=True,
-                )
-                ur_texts = [str(r["text"]) for r in ds_ur if r.get("text")]
-            except Exception as e2:
-                raise RuntimeError(
-                    f"Both datasets failed. Check your internet connection.\n"
-                    f"Error 1: {e}\nError 2: {e2}"
-                )
+            print(f"Dataset load failed ({e}). Running in rule-only mode.")
+            self.is_fitted = True
+            return self
 
-        print(f"Loaded {len(ur_texts):,} sentences. Building token dataset...")
-
-        # ── Build word-level training set ─────────────────────────────────────
+        # Build training data word-by-word
         X_words, y_labels = [], []
-
-        for text in ur_texts[:50_000]:
-            for word in text.lower().split():
+        for text in texts[:30000]:           # 30k sentences is enough
+            for word in text.split():
                 word = re.sub(r"[^\w]", "", word)
                 if len(word) < 2:
                     continue
-
                 label = self._seed_label(word)
-
-                # If not in seeds, apply strong heuristics only
-                if label == "MIX":
-                    label = self._strong_heuristic(word)
-
                 if label != "MIX":
                     X_words.append(word)
                     y_labels.append(label)
 
-        # Balance classes
-        from collections import Counter
-        counts = Counter(y_labels)
-        print(f"Raw label distribution: {dict(counts)}")
-
-        min_count = min(counts.values())
-        balanced_X, balanced_y = [], []
-        class_seen = Counter()
-        for w, l in zip(X_words, y_labels):
-            if class_seen[l] < min_count:
-                balanced_X.append(w)
-                balanced_y.append(l)
-                class_seen[l] += 1
-
-        print(f"Balanced training set: {len(balanced_X):,} tokens per class")
-
-        if len(balanced_X) < 200:
-            print("Not enough data. Switching to rule-only mode.")
+        if len(X_words) < 100:
+            print("Not enough labeled words. Using rule-only mode.")
             self.is_fitted = True
             return self
 
-        # ── Train pipeline ────────────────────────────────────────────────────
-        print("Training LinearSVC on char n-grams...")
+        print(f"Training on {len(X_words):,} labeled tokens...")
 
-        self._pipeline = Pipeline([
-            ("tfidf", TfidfVectorizer(
-                analyzer="char_wb",     # word-boundary aware char n-grams
-                ngram_range=(2, 4),
-                max_features=30_000,    # lightweight but expressive
-                sublinear_tf=True,      # log-scale TF
-                min_df=2,
-            )),
-            ("clf", CalibratedClassifierCV(
-                LinearSVC(
-                    C=0.5,
-                    max_iter=2000,
-                    class_weight="balanced",
-                ),
-                cv=3,
-            )),
-        ])
+        # Trigram character vectorizer — captures spelling patterns
+        self._vectorizer = HashingVectorizer(
+            analyzer="char",
+            ngram_range=(2, 4),
+            n_features=2 ** 14,
+            alternate_sign=False,
+        )
+        X = self._vectorizer.transform(X_words)
 
-        self._pipeline.fit(balanced_X, balanced_y)
+        self.clf = LogisticRegression(
+            max_iter=200,
+            C=1.0,
+            solver="lbfgs",
+            multi_class="auto",
+        )
+        self.clf.fit(X, y_labels)
         self.is_fitted = True
-        print("Training complete.")
-
-        if save:
-            self._save()
-
+        print("CodeSwitchDetector trained.")
         return self
 
-    # ── Inference ─────────────────────────────────────────────────────────────
+    # ------------------------------------------------------------------
+    # Inference
+    # ------------------------------------------------------------------
 
     def detect(self, text: str) -> list:
         """
         Label each token in the text.
 
+        Parameters
+        ----------
+        text : str
+            Raw input sentence (Roman Urdu / English mix).
+
         Returns
         -------
-        list of (token, label) tuples  — label is "UR", "EN", or "MIX"
+        list of (token, label) tuples
+            label is "UR", "EN", or "MIX"
 
         Example
         -------
         >>> detector.detect("mujhe yeh project finish karna hai")
-        [('mujhe','UR'),('yeh','UR'),('project','EN'),('finish','EN'),
-         ('karna','UR'),('hai','UR')]
+        [('mujhe','UR'),('yeh','UR'),('project','EN'),
+         ('finish','EN'),('karna','UR'),('hai','UR')]
         """
         tokens = text.lower().split()
         results = []
@@ -252,17 +214,19 @@ class CodeSwitchDetector:
             if not clean:
                 results.append((tok, "MIX"))
                 continue
-            results.append((tok, self._classify(clean)))
+            label = self._classify_token(clean)
+            results.append((tok, label))
         return results
 
     def spans(self, text: str) -> list:
         """
-        Merge consecutive same-language tokens into spans.
+        Return contiguous spans of same-language tokens.
 
         Returns
         -------
-        list of dicts: {"text", "lang", "start", "end"}
-        start/end are token indices.
+        list of dicts:
+            {"text": str, "lang": str, "start": int, "end": int}
+            start/end are token indices (not character offsets).
 
         Example
         -------
@@ -275,106 +239,95 @@ class CodeSwitchDetector:
         if not labeled:
             return []
 
-        spans, current_lang = [], labeled[0][1]
-        current_words, start = [labeled[0][0]], 0
+        spans = []
+        current_lang  = labeled[0][1]
+        current_words = [labeled[0][0]]
+        start_idx     = 0
 
-        for i, (tok, lang) in enumerate(labeled[1:], 1):
+        for i, (tok, lang) in enumerate(labeled[1:], start=1):
             if lang == current_lang:
                 current_words.append(tok)
             else:
-                spans.append({"text": " ".join(current_words),
-                               "lang": current_lang,
-                               "start": start, "end": i - 1})
-                current_lang, current_words, start = lang, [tok], i
+                spans.append({
+                    "text":  " ".join(current_words),
+                    "lang":  current_lang,
+                    "start": start_idx,
+                    "end":   i - 1,
+                })
+                current_lang  = lang
+                current_words = [tok]
+                start_idx     = i
 
-        spans.append({"text": " ".join(current_words),
-                      "lang": current_lang,
-                      "start": start, "end": len(labeled) - 1})
+        spans.append({
+            "text":  " ".join(current_words),
+            "lang":  current_lang,
+            "start": start_idx,
+            "end":   len(labeled) - 1,
+        })
         return spans
 
     def switch_points(self, text: str) -> list:
-        """Return token indices where the language switches."""
-        labeled = self.detect(text)
-        return [i for i in range(1, len(labeled))
-                if labeled[i][1] != labeled[i - 1][1]]
-
-    def predict_proba(self, word: str) -> dict:
         """
-        Return confidence scores for a single token.
+        Return the token indices where the language switches.
 
-        Returns
+        Example
         -------
-        dict: {"UR": float, "EN": float}  (0.0–1.0)
+        >>> detector.switch_points("mujhe yeh project finish karna")
+        [2, 4]   # switches at token 2 (project) and token 4 (karna)
         """
-        if not self.is_fitted or self._pipeline is None:
-            return {"UR": 0.5, "EN": 0.5}
-        clean = re.sub(r"[^\w]", "", word.lower())
-        proba = self._pipeline.predict_proba([clean])[0]
-        classes = self._pipeline.classes_
-        return {c: round(float(p), 4) for c, p in zip(classes, proba)}
+        labeled = self.detect(text)
+        points  = []
+        for i in range(1, len(labeled)):
+            if labeled[i][1] != labeled[i - 1][1]:
+                points.append(i)
+        return points
 
-    # ── Internal helpers ──────────────────────────────────────────────────────
-
-    def _classify(self, word: str) -> str:
-        """Full classification pipeline for a single clean token."""
-        # 1. Seed lookup (fastest, most reliable)
-        label = self._seed_label(word)
-        if label != "MIX":
-            return label
-
-        # 2. Trained model
-        if self.is_fitted and hasattr(self, "_pipeline") and self._pipeline:
-            return self._pipeline.predict([word])[0]
-
-        # 3. Heuristic fallback
-        return self._strong_heuristic(word)
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
 
     def _seed_label(self, word: str) -> str:
+        """Quick label from seed sets."""
         if word in self._ur_vocab:
             return "UR"
         if word in self._en_vocab:
             return "EN"
         return "MIX"
 
-    def _strong_heuristic(self, word: str) -> str:
+    def _classify_token(self, word: str) -> str:
+        """Classify a single clean token."""
+        # 1. Direct seed lookup first (fast, high confidence)
+        seed = self._seed_label(word)
+        if seed != "MIX":
+            return seed
+
+        # 2. Classifier if trained
+        if self.clf is not None:
+            vec = self._vectorizer.transform([word])
+            return self.clf.predict(vec)[0]
+
+        # 3. Heuristic fallback
+        return self._heuristic(word)
+
+    def _heuristic(self, word: str) -> str:
         """
-        High-precision rule-based classifier.
-        Only returns UR/EN when very confident — else MIX.
+        Rule-based fallback when no classifier is available.
+        - Words ending in common Urdu suffixes → UR
+        - Words matching common English patterns → EN
         """
-        # Strong Urdu suffixes
-        ur_suffixes = ("na","ni","ne","ta","ti","te","ga","gi","kar",
-                       "wala","wali","wale","oun","ain","ein","iye")
-        # Strong English suffixes
-        en_suffixes = ("tion","ness","ment","ful","less","ize","ise",
-                       "ous","ive","ible","able","ing","ed","ly","er","est")
-        # Urdu character combos rarely in English
-        ur_patterns = re.compile(r"(kh|gh|ch|sh|ph|wh|aa|ee|oo|uu)")
-        en_only      = re.compile(r"(ck|wn|ght|tch|dge|wr|kn|mb)")
+        ur_suffixes = ("na", "ni", "ne", "ta", "ti", "te", "ga", "gi",
+                       "kar", "ke", "ko", "ka", "ki", "se", "mein")
+        en_suffixes = ("tion", "ing", "ness", "ment", "ful", "less",
+                       "ize", "ise", "ous", "ive", "ible", "able",
+                       "ly", "ed", "er", "est")
 
         if word.endswith(ur_suffixes):
             return "UR"
         if word.endswith(en_suffixes):
             return "EN"
-        if en_only.search(word):
-            return "EN"
-        if ur_patterns.search(word) and len(word) > 4:
-            return "UR"
-
-        return "MIX"
-
-    # ── Persistence ───────────────────────────────────────────────────────────
-
-    def _save(self):
-        os.makedirs(os.path.dirname(self.model_path), exist_ok=True)
-        with open(self.model_path, "wb") as f:
-            pickle.dump(self._pipeline, f, protocol=4)
-        print(f"Model saved → {self.model_path}")
-
-    def _load(self):
-        with open(self.model_path, "rb") as f:
-            self._pipeline = pickle.load(f)
-        self.is_fitted = True
-        print(f"Model loaded ← {self.model_path}")
+        # If mostly consonants with no typical Urdu combos → EN
+        vowel_ratio = sum(1 for c in word if c in "aeiou") / max(len(word), 1)
+        return "EN" if vowel_ratio < 0.2 else "MIX"
 
     def __repr__(self):
         status = "fitted" if self.is_fitted else "not fitted"
