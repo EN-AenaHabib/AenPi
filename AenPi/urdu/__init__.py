@@ -60,15 +60,7 @@ from .pipeline import (
     AVAILABLE_STAGES,
 )
 
-from .urdu import (
-    UrduNER,
-    UrduStemmer,
-    UrduPOSTagger,
-    UrduNormalizer,
-    UrduSentiment,
-    UrduSummarizer,
-    # ... whatever you want accessible via `from AenPi import X`
-)
+
 
 # ================= PUBLIC API =================
 
