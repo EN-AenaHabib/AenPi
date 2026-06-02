@@ -226,8 +226,6 @@ tagger = UrduPOSTagger()
 tagger.tag_sentence("احمد نے کتاب پڑھی")
 # → [("احمد","PROPN"), ("نے","ADP"), ("کتاب","NOUN"), ("پڑھی","VERB")]
 
-tagger.tag_roman("Ali ne kitab parhi")
-# → [("Ali","PROPN"), ("ne","ADP"), ("kitab","NOUN"), ("parhi","VERB")]
 ```
 
 **Target accuracy:** ≥ 90% on UD Urdu test split.
@@ -237,10 +235,13 @@ tagger.tag_roman("Ali ne kitab parhi")
 ### Named Entity Recognizer
 
 CRF-based NER trained on the MK-PUCIT Urdu NER dataset (250K tokens). Gazetteer-enhanced for Pakistani proper nouns.
+unimelb-nlp/wikiann dataset  
+
+consists of ~20,000 sentences containing roughly 163,000 individual tokens.
 
 ```python
-ner = urdu.UrduNER()
-ner.fit()
+from AenPi import UrduNER          
+ner = UrduNER()
 
 # BIO tags
 ner.tag("Ali Ahmed ne Lahore mein kaam kiya")
@@ -286,7 +287,6 @@ Token-level language identifier for mixed Urdu–English text. The **first pip-p
 
 ```python
 detector = urdu.CodeSwitchDetector()
-detector.fit()
 
 # Label each token
 detector.detect("mujhe yeh project deadline tak finish karna hai")
