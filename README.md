@@ -220,10 +220,10 @@ stemmer.stem_tokens(["کھانے", "پینے", "جانا"])
 CRF based Part-of-Speech tagger trained on the UD Urdu Treebank and CLE Urdu POS corpus.
 
 ```python
-tagger = urdu.UrduPOSTagger()
-tagger.fit()   # trains CRF on UD Urdu Treebank
+from AenPi.urdu.pos_tagger import UrduPOSTagger
+tagger = UrduPOSTagger()
 
-tagger.tag("احمد نے کتاب پڑھی")
+tagger.tag_sentence("احمد نے کتاب پڑھی")
 # → [("احمد","PROPN"), ("نے","ADP"), ("کتاب","NOUN"), ("پڑھی","VERB")]
 
 tagger.tag_roman("Ali ne kitab parhi")
