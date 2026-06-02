@@ -41,13 +41,9 @@ LLM_PROFILES = {
 }
 
 
-# ---------------- MODULE PROFILES ----------------
-MODULE_PROFILES = {
-    "sentiment": {"weight": 1.0},
-    "ner": {"weight": 1.8},
-    "summarizer": {"weight": 2.5},
-    "code_switch": {"weight": 1.2},
-}
+# ---------------- VALID MODULES ----------------
+# Used to validate incoming module strings and prevent typos
+VALID_MODULES = {"sentiment", "ner", "summarizer", "code_switch"}
 
 
 class CarbonEstimator:
