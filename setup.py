@@ -7,11 +7,13 @@ setup(
     packages=[
         "AenPi",
         "AenPi.urdu",
-        "AenPi.experimental",  # ← add this
+        "AenPi.experimental",
+        "AenPi.utils",          # ← add this
     ],
     package_data={
         "AenPi.urdu": ["*.py", "*.pkl.gz", "*.joblib"],
-        "AenPi.experimental": ["*.py"],  # ← add this
+        "AenPi.experimental": ["*.py"],
+        "AenPi.utils": ["*.py"],  # ← add this
     },
     include_package_data=True,
     install_requires=[
