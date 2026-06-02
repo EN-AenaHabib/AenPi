@@ -69,7 +69,8 @@ from AenPi import urdu
 # --- Core preprocessing ---
 urdu.preprocess("میرا نام احمد ہے!")
 urdu.tokenize("یہ ایک جملہ ہے")
-urdu.normalize("ﻣﯿﺮﺍ ﻧﺎﻡ احمد هے")
+norm = UrduNormalizer()
+print(norm.normalize("ﻣﯿﺮﺍ ﻧﺎﻡ احمد هے"))
 urdu.remove_stopwords("یہ ایک اچھا اور خوبصورت دن ہے")
 urdu.spell_correct("احمض", ["احمد", "محمد", "علی"])
 
