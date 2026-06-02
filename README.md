@@ -88,10 +88,10 @@ print(model.predict("yeh film bohat acha tha"))
 # {"label": "Positive", "score": 0.91}
 
 # --- Named Entity Recognition ---
-ner = urdu.UrduNER()
-ner.fit()
-print(ner.entities("Ali Ahmed ne Lahore mein kaam kiya"))
-# [{"text": "Ali Ahmed", "label": "PERSON"}, {"text": "Lahore", "label": "LOCATION"}]
+from AenPi import UrduNER    
+ner = UrduNER()
+entities = ner.get_entities("وزیر اعظم نے اسلام آباد میں تقریر کی")
+# get_entities(): [('وزیر اعظم', 'PERSON'), ('آباد', 'LOCATION')]
 
 # --- Intent Router (replaces GPT-4 for classification) ---
 router = urdu.IntentRouter()
@@ -135,11 +135,13 @@ urdu.remove_punctuation(text)
 Handles Unicode normalization, Alef/Ya/Kaf/Ha character variants, ligatures, and punctuation spacing.
 
 ```python
-urdu.normalize(text)
+norm = UrduNormalizer()
+print(norm.normalize("ﻣﯿﺮﺍ ﻧﺎﻡ احمد هے"))
 # Full normalization → str
 
 # Individual normalizers:
 from AenPi.urdu.normalizer import normalize_alef, normalize_ya, normalize_kaf, normalize_ha
+from AenPi.urdu import UrduNormalizer
 ```
 
 ---
@@ -190,19 +192,6 @@ urdu.spell_correct_text(text, vocabulary, max_distance=2) # → str
 
 ---
 
-### N-gram Model
-
-```python
-# One-shot prediction
-urdu.ngram_predict("میرا", corpus, n=2, top_k=3)
-# → [("نام", 2), ("گھر", 1), ("دوست", 1)]
-
-# Reusable model
-model = urdu.NGramPredictor(n=2)
-model.train(sentences)
-model.predict("میرا", top_k=3)
-model.vocabulary()
-```
 
 ---
 
