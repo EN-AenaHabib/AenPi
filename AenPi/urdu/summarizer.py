@@ -16,20 +16,6 @@ Solution : Score each sentence by three signals:
 
 Dataset  : mirfan899/usummary (HuggingFace) — Urdu news summaries
            Used to tune position weights and validate output quality.
-
-Usage
------
-    from aenpi import UrduSummarizer
-
-    summ = UrduSummarizer()
-    summ.fit()
-
-    result = summ.summarize(long_urdu_text, n=3)
-    for item in result:
-        print(item["sentence"], "→ score:", item["score"])
-
-    # Quick string output
-    print(summ.summarize_text(long_urdu_text, n=2))
 """
 
 import re
@@ -75,8 +61,7 @@ class UrduSummarizer:
         try:
             from datasets import load_dataset
             ds = load_dataset("mirfan899/usummary", split="train",
-                              trust_remote_code=True)
-            # Collect all article texts
+                             trust_remote_code=True)
             corpus_texts = []
             for row in ds:
                 for key in ("article", "text", "document", "body"):
@@ -99,34 +84,7 @@ class UrduSummarizer:
     # ------------------------------------------------------------------
 
     def summarize(self, text: str, n: int = 3) -> list:
-        """
-        Extract the N most important sentences from Urdu text.
-
-        Parameters
-        ----------
-        text : str
-            Input article or passage (Urdu or Roman Urdu).
-        n    : int
-            Number of sentences to return. Default is 3.
-
-        Returns
-        -------
-        list of dicts (sorted by final_score descending):
-            {
-              "sentence"      : str,
-              "position"      : int,   # original sentence index
-              "score"         : float, # final combined score
-              "tf_idf_score"  : float,
-              "position_score": float,
-              "entity_score"  : float,
-            }
-
-        Example
-        -------
-        >>> results = summ.summarize(article_text, n=3)
-        >>> for r in results:
-        ...     print(r["sentence"], "→", r["score"])
-        """
+        """Extract the $N$ most important sentences from Urdu text."""
         sentences = self._split_sentences(text)
         if not sentences:
             return []
@@ -141,10 +99,10 @@ class UrduSummarizer:
         doc_len   = max(len(all_words), 1)
 
         for idx, sent in enumerate(sentences):
-            words         = self._tokenize(sent)
-            tf_idf_score  = self._tfidf_score(words, doc_tf, doc_len)
+            words          = self._tokenize(sent)
+            tf_idf_score   = self._tfidf_score(words, doc_tf, doc_len)
             position_score = self._position_score(idx, total)
-            entity_score  = self._entity_score(sent)
+            entity_score   = self._entity_score(sent)
 
             final = (
                 self.tfidf_weight    * tf_idf_score  +
@@ -169,27 +127,12 @@ class UrduSummarizer:
         return top
 
     def summarize_text(self, text: str, n: int = 3) -> str:
-        """
-        Return the top-N sentences joined as a single string.
-        Convenience wrapper around summarize().
-
-        Example
-        -------
-        >>> print(summ.summarize_text(article, n=2))
-        "Pakistan ne aaj... Lahore mein..."
-        """
+        """Return the top-$N$ sentences joined as a single string."""
         results = self.summarize(text, n=n)
         return " ".join(r["sentence"] for r in results)
 
     def keyword_summary(self, text: str, top_k: int = 10) -> list:
-        """
-        Return the top-K most important words (keywords) from the text.
-        Useful for tagging or topic detection.
-
-        Returns
-        -------
-        list of (word, score) tuples sorted by importance.
-        """
+        """Return the top-$K$ most important words (keywords) from the text."""
         words  = self._tokenize(text)
         tf     = Counter(words)
         length = max(len(words), 1)
@@ -205,57 +148,60 @@ class UrduSummarizer:
     # ------------------------------------------------------------------
 
     def _tfidf_score(self, words: list, doc_tf: Counter, doc_len: int) -> float:
-        """Average TF-IDF of all words in the sentence."""
         if not words:
             return 0.0
         total = sum(self._word_tfidf(w, doc_tf[w], doc_len) for w in words)
         return total / len(words)
 
     def _word_tfidf(self, word: str, tf_count: int, doc_len: int) -> float:
-        """TF-IDF score for a single word."""
         tf  = tf_count / doc_len
-        idf = self.idf_table.get(word, math.log(10))  # default IDF if unseen
+        idf = self.idf_table.get(word, math.log(10))
         return tf * idf
 
     def _position_score(self, idx: int, total: int) -> float:
-        """
-        Position-based score.
-        In Urdu news: first sentence (lede) and last sentence (conclusion)
-        are most important.
-        """
         if total == 1:
             return 1.0
         if idx == 0:
             return 1.0
         if idx == total - 1:
             return 0.8
-        # Middle sentences decay linearly
         rel = idx / (total - 1)
         return 1.0 - 0.6 * rel
 
     def _entity_score(self, sentence: str) -> float:
         """
-        Reward sentences that contain proper nouns / entity-like tokens.
-        Heuristic: title-cased words and known seeds indicate entities.
+        Reward sentences containing proper nouns/entities.
+        Uses UrduNER sequence tagger dynamically if available, with a 
+        safe capitalization fallback for Romanized Urdu text.
         """
-        from .ner import _PERSON_SEEDS, _LOCATION_SEEDS, _ORG_SEEDS
-        words      = sentence.split()
         entity_count = 0
+        words = sentence.split()
+        if not words:
+            return 0.0
+
+        # Clean cross-module integration with UrduNER
+        try:
+            from .ner import UrduNER
+            ner = UrduNER()
+            if ner._crf is not None:
+                # Count discovered entities from our CRF pipeline
+                found_entities = ner.get_entities(sentence)
+                entity_count += len(found_entities)
+        except Exception:
+            pass  # Fail gracefully if NER model file isn't generated yet
+
+        # Capitalization heuristic (crucial context signal for Roman Urdu proper nouns)
         for w in words:
-            clean = re.sub(r"[^\w]", "", w.lower())
-            if clean in _PERSON_SEEDS or clean in _LOCATION_SEEDS or clean in _ORG_SEEDS:
-                entity_count += 1
-            elif w[0].isupper() if w else False:
+            if w and w[0].isupper():
                 entity_count += 0.5
-        # Normalize by sentence length
-        return min(entity_count / max(len(words), 1) * 3, 1.0)
+
+        return min(entity_count / len(words) * 3, 1.0)
 
     # ------------------------------------------------------------------
-    # IDF builder
+    # IDF builder & Text helpers
     # ------------------------------------------------------------------
 
     def _build_idf(self, documents: list) -> dict:
-        """Build IDF table from a list of document strings."""
         N   = len(documents)
         df  = Counter()
         for doc in documents:
@@ -266,35 +212,20 @@ class UrduSummarizer:
             idf[word] = math.log(N / (count + 1)) + 1
         return idf
 
-    # ------------------------------------------------------------------
-    # Text helpers
-    # ------------------------------------------------------------------
-
     def _split_sentences(self, text: str) -> list:
-        """
-        Split text into sentences.
-        Handles both Urdu (۔ ؟ !) and Roman Urdu (. ? !) delimiters.
-        """
-        # Urdu full stop is ۔ (U+06D4), question mark ؟ (U+061F)
         text = re.sub(r"([۔؟!\.\?])", r"\1\n", text)
         sentences = [s.strip() for s in text.split("\n") if s.strip()]
-        # Filter out very short sentences (< 3 words)
-        sentences = [s for s in sentences if len(s.split()) >= 3]
-        return sentences
+        return [s for s in sentences if len(s.split()) >= 3]
 
     def _tokenize(self, text: str) -> list:
-        """Tokenize and remove stopwords for scoring."""
         _UR_STOPWORDS = {
             "hai","hain","tha","thi","the","ko","ka","ki","ke","se",
             "mein","ne","par","aur","ya","kya","nahi","agar","lekin",
             "phir","toh","bhi","hi","sirf","bas","aap","tum","hum",
             "wo","ye","yeh","woh","iska","uska","apna","mera","tera",
-            "ka","ki","ke","ko","se","mein","ne","par","pe","tak",
-            "jo","jab","jahan","jaise","kyun","kaun","kaise","kitna",
+            "tak","pe","jo","jab","jahan","jaise","kyun","kaun","kaise",
             "sab","kuch","yahan","wahan","ab","abhi","pehle","baad",
-            "a","an","the","is","are","was","were","to","of","in",
-            "on","at","by","for","with","and","or","but","not","this",
-            "that","it","he","she","we","they","i","you",
+            "is","are","was","were","to","of","in","on","at","by","for"
         }
         text  = text.lower()
         text  = re.sub(r"[^\w\s]", " ", text)
