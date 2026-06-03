@@ -213,16 +213,14 @@ ner.entities("Ali Ahmed ne Lahore mein kaam kiya")
 TF-IDF + Logistic Regression trained on 134K Roman Urdu social-media samples. Runs in < 1ms on CPU.
 
 ```python
-model = urdu.UrduSentiment()
-model.fit()
+from AenPi.urdu import sentiment, sentiment_batch
 
-model.predict("yeh film bohat acha tha")
-# → {"label": "Positive", "score": 0.91, "scores": {...}}
+print(sentiment("yeh bohat acha tha"))
+# {'label': 'Positive', 'score': 0.91, 'scores': {...}}
 
-model.predict_batch(["bohat bura", "mazay ka din", "theek hai"])
+print("\n")
+print(sentiment_batch(["bohat bura", "mazay ka din", "theek hai"]))
 # → [{"label":"Negative",...}, {"label":"Positive",...}, {"label":"Neutral",...}]
-
-model.score(test_texts, test_labels)   # → accuracy float
 ```
 
 **Labels:** `Positive` · `Negative` · `Neutral`  
@@ -305,26 +303,18 @@ keywords = summ.keyword_summary(article_text, top_k=10)
 Replace GPT-4 intent classification with a trainable offline classifier. Trains on your custom labels in under 60 seconds on CPU.
 
 ```python
-router = urdu.IntentRouter()
-router.fit([
-    ("mujhe order chahiye",    "order"),
-    ("naya order karna hai",   "order"),
-    ("mera paisa wapis karo",  "refund"),
-    ("delivery kab hogi",      "tracking"),
-    ("product kharab nikla",   "complaint"),
-])
+from AenPi.urdu import intent, intent_batch, intent_top
 
-router.predict("mera parcel nahi aya")
-# → {"intent": "tracking", "score": 0.87, "scores": {...}}
+print(intent("mera parcel kahan hai"))
+# {'intent': 'tracking', 'score': 0.87, 'scores': {...}}
 
-router.top_n("payment fail", n=3)
+print("\n")
+print(intent_batch(["naya order karna hai", "cancel kr do"]))
+# → [{"intent":"order",...}, {"intent":"complaint,...}, {"intent":"feedback",...}]
+
+print("\n")
+print(intent_top("payment fail", n=3))
 # → [{"intent":"refund","score":0.72}, ...]
-
-# Add new intents without retraining from scratch
-router.add_examples([("app crash ho gaya", "bug")])
-router.refit()
-
-router.score(test_examples)   # → accuracy float
 ```
 
 **Use case:** Any chatbot, support ticket router, or form classifier that currently calls an LLM API just to pick from 5–10 categories.
