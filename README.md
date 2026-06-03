@@ -249,9 +249,6 @@ detector.spans("mujhe project finish karna hai")
 #    {"text":"project finish","lang":"EN","start":1,"end":2},
 #    {"text":"karna hai","lang":"UR","start":3,"end":4}]
 
-# Switch point indices
-detector.switch_points("mujhe project karna hai")
-# → [1, 2]
 ```
 
 **Target:** ≥ 80% token F1 on held-out social media sample.
