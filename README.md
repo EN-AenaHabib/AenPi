@@ -149,8 +149,7 @@ from AenPi.urdu import UrduNormalizer
 Maps the 50+ spelling variants of Roman Urdu to a canonical form. Trained on 134K real social-media samples.
 
 ```python
-norm = urdu.UrduNormalizer()
-norm.fit()   # downloads corpus, builds mapping table
+norm = UrduNormalizer()
 
 norm.normalize("kesy ho aap??  kia haal hay")
 # → "kaise ho aap ? kya hal hai"
