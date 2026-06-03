@@ -211,6 +211,7 @@ ner.entities("Ali Ahmed ne Lahore mein kaam kiya")
 ### Sentiment Classifier
 
 TF-IDF + Logistic Regression trained on 134K Roman Urdu social-media samples. Runs in < 1ms on CPU.
+(https://huggingface.co/datasets/Khubaib01/RomanUrdu-NLP-Sentiment-Corpus) 
 
 ```python
 from AenPi.urdu import sentiment, sentiment_batch
