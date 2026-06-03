@@ -60,57 +60,6 @@ pip install sklearn-crfsuite
 ```
 
 ---
-
-## Quick Start
-
-```python
-from AenPi import urdu
-
-# --- Core preprocessing ---
-urdu.preprocess("میرا نام احمد ہے!")
-urdu.tokenize("یہ ایک جملہ ہے")
-norm = UrduNormalizer()
-print(norm.normalize("ﻣﯿﺮﺍ ﻧﺎﻡ احمد هے"))
-urdu.remove_stopwords("یہ ایک اچھا اور خوبصورت دن ہے")
-urdu.spell_correct("احمض", ["احمد", "محمد", "علی"])
-
-# --- Pipeline (chain everything in one call) ---
-nlp = urdu.Pipeline(["normalize", "tokenize", "codemix", "pos", "ner", "sentiment"])
-doc = nlp("Aaj bohot zabardast din tha, Karachi me!")
-print(doc.tokens)       # tokens with POS and NER labels
-print(doc.sentiment)    # "Positive"
-print(doc.entities)     # [{"text": "Karachi", "label": "LOCATION"}]
-
-# --- Sentiment ---
-model = urdu.UrduSentiment()
-model.fit()
-print(model.predict("yeh film bohat acha tha"))
-# {"label": "Positive", "score": 0.91}
-
-# --- Named Entity Recognition ---
-from AenPi import UrduNER    
-ner = UrduNER()
-entities = ner.get_entities("وزیر اعظم نے اسلام آباد میں تقریر کی")
-# get_entities(): [('وزیر اعظم', 'PERSON'), ('آباد', 'LOCATION')]
-
-# --- Intent Router (replaces GPT-4 for classification) ---
-router = urdu.IntentRouter()
-router.fit([
-    ("mujhe order chahiye", "order"),
-    ("refund chahiye",      "refund"),
-    ("parcel kahan hai",    "tracking"),
-])
-print(router.predict("mera parcel nahi aya"))
-# {"intent": "tracking", "score": 0.87}
-
-# --- Green AI metrics ---
-with urdu.GreenMetrics("Full Pipeline") as gm:
-    doc = nlp("میرا نام احمد ہے")
-gm.report()
-```
-
----
-
 ## Module Reference
 
 ### Preprocessor
