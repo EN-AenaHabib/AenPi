@@ -27,7 +27,7 @@ from .ngram import (
 
 from .code_switch import CodeSwitchDetector
 from .sentiment import UrduSentiment
-from .ner import UrduNER , entities
+from .ner import UrduNER
 from .summarizer import UrduSummarizer
 from .intent_router import IntentRouter
 
