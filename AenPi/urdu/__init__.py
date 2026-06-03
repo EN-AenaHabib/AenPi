@@ -131,3 +131,61 @@ __all__ = [
     "Doc",
     "AVAILABLE_STAGES",
 ]
+
+
+
+# ── auto-load saved models ────────────────────────────────────────────────────
+import joblib
+from pathlib import Path
+
+_MODELS_DIR     = Path(__file__).parent / "models"
+_router = None
+_model  = None
+
+try:
+    _d      = joblib.load(_MODELS_DIR / "intent_router.joblib")
+    _router = IntentRouter()
+    _router.vectorizer = _d["vectorizer"]
+    _router.clf        = _d["clf"]
+    _router.classes_   = _d["classes_"]
+    _router.is_fitted  = _d["is_fitted"]
+    _router._examples  = _d["_examples"]
+except Exception:
+    pass
+
+try:
+    _d     = joblib.load(_MODELS_DIR / "urdu_sentiment.joblib")
+    _model = UrduSentiment()
+    _model.vectorizer = _d["vectorizer"]
+    _model.clf        = _d["clf"]
+    _model.classes_   = _d["classes_"]
+    _model.is_fitted  = _d["is_fitted"]
+except Exception:
+    pass
+
+# ── shortcut functions ────────────────────────────────────────────────────────
+
+def sentiment(text: str) -> dict:
+    if _model is None:
+        raise RuntimeError("urdu_sentiment.joblib not found in AenPi/urdu/models/")
+    return _model.predict(text)
+
+def sentiment_batch(texts: list) -> list:
+    if _model is None:
+        raise RuntimeError("urdu_sentiment.joblib not found in AenPi/urdu/models/")
+    return _model.predict_batch(texts)
+
+def intent(text: str) -> dict:
+    if _router is None:
+        raise RuntimeError("intent_router.joblib not found in AenPi/urdu/models/")
+    return _router.predict(text)
+
+def intent_batch(texts: list) -> list:
+    if _router is None:
+        raise RuntimeError("intent_router.joblib not found in AenPi/urdu/models/")
+    return _router.predict_batch(texts)
+
+def intent_top(text: str, n: int = 3) -> list:
+    if _router is None:
+        raise RuntimeError("intent_router.joblib not found in AenPi/urdu/models/")
+    return _router.top_n(text, n=n)
