@@ -139,8 +139,6 @@ norm = UrduNormalizer()
 print(norm.normalize("ﻣﯿﺮﺍ ﻧﺎﻡ احمد هے"))
 # Full normalization → str
 
-# Individual normalizers:
-from AenPi.urdu.normalizer import normalize_alef, normalize_ya, normalize_kaf, normalize_ha
 from AenPi.urdu import UrduNormalizer
 ```
 
