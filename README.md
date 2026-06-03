@@ -146,14 +146,17 @@ urdu.spell_correct_text(text, vocabulary, max_distance=2) # → str
 Assas-Band-style affix stripping for Urdu. Strips common prefixes and suffixes to find the root form.
 
 ```python
-stemmer = urdu.UrduStemmer()
+from AenPi.urdu import UrduStemmer
 
-stemmer.stem("کھانے")     # → "کھا"
-stemmer.stem("لکھتا")     # → "لکھ"
-stemmer.lemmatize("گئی")  # → "جا"
+stemmer = UrduStemmer()
 
-# Batch
-stemmer.stem_tokens(["کھانے", "پینے", "جانا"])
+# Single words
+print(stemmer.stem("کھانے"))   # کھا
+print(stemmer.stem("لکھتا"))   # لکھ
+print(stemmer.stem("گئی"))     # جا
+
+# Sentence
+print(stemmer.stem_sentence("کھانے پینے جانا"))
 # → ["کھا", "پی", "جا"]
 ```
 
