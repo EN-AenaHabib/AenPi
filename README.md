@@ -224,7 +224,6 @@ print(sentiment_batch(["bohat bura", "mazay ka din", "theek hai"]))
 ```
 
 **Labels:** `Positive` · `Negative` · `Neutral`  
-**Target:** ≥ 80% accuracy on RUHSOLD test split.
 
 ---
 
