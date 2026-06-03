@@ -130,6 +130,13 @@ __all__ = [
     "Pipeline",
     "Doc",
     "AVAILABLE_STAGES",
+
+    #Intenet router and sentiment 
+    "sentiment",
+    "sentiment_batch",
+    "intent",
+    "intent_batch",
+    "intent_top",
 ]
 
 
