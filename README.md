@@ -353,29 +353,88 @@ stats.summary()                   # → dict of all stats at once
 
 ---
 
-### Pipeline
+### Reduplication Detector
 
-Chain any combination of modules in a single call. The unified entry point for the entire library.
+Detects Urdu / Roman Urdu **reduplicated word pairs** — echo and repeat forms that
+carry meaning ("and such", "all kinds of", emphasis, plurality) yet break
+tokenizers and search indexes because the echo word ("shai", "vitab") is not a
+real dictionary word. Purely rule-based: no training data, no model download, no GPU.
+
+It recognises three patterns:
+
+- **full** — an exact repeat → `garm garm` ("piping hot"), `jaldi jaldi` ("hurriedly")
+- **echo** — onset swapped for a fixed echo former (`v` / `w` / `sh`, or `و` / `ش`) → `chai-shai`, `kitab-vitab`
+- **rhyming** — onset swapped for any other consonant (off by default to keep precision high)
+
+Works on both Roman and Nastaliq Urdu, and on spaced (`kitab vitab`) and hyphenated (`kitab-vitab`) forms.
 
 ```python
-nlp = urdu.Pipeline(["normalize", "tokenize", "codemix", "pos", "ner", "sentiment"])
+from AenPi.urdu import ReduplicationDetector
+redup = ReduplicationDetector()
 
-doc = nlp("Aaj bohot zabardast din tha, Karachi me!")
+# Full annotation
+redup.detect("mujhe chai-shai pila do aur garm garm roti")
+# → [{"text":"chai-shai","base":"chai","echo":"shai","type":"echo","start":2,"end":2},
+#    {"text":"garm garm","base":"garm","echo":"garm","type":"full","start":5,"end":6}]
+
+redup.has_reduplication("kitab vitab")        # → True
+redup.reduplications("kitab-vitab le aao")    # → ["kitab-vitab"]
+redup.count("garm garm chai-shai")            # → 2
+
+# Optional rhyming pairs (e.g. "ulta-pulta")
+ReduplicationDetector(include_rhyming=True).detect("ulta-pulta")
+
+# One-shot helper — no detector to build
+from AenPi.urdu import find_reduplications
+find_reduplications("chai-shai aur garm garm")
+```
+
+**Returned fields:** `text` · `base` · `echo` · `type` (`full`/`echo`/`rhyming`) · `start` · `end`
+**Constructor options:** `roman_formers`, `urdu_formers`, `include_rhyming`, `min_length`
+**Use cases:** Tokenizer/stemmer pre-pass, search-index normalization, morphological analysis.
+
+---
+
+### Pipeline
+
+Chain any combination of modules in a single call — the unified entry point for the
+entire library. Trainable models are fitted once when the pipeline is built and reused
+for every call. **Robust by default:** a stage whose module or dependency is missing is
+skipped with a warning instead of crashing the run.
+
+```python
+from AenPi.urdu import Pipeline
+
+nlp = Pipeline(["normalize", "tokenize", "ner", "sentiment", "reduplication"])
+# Pipeline ready. Active stages: ['normalize', 'tokenize', 'ner', 'sentiment', 'reduplication']
+
+doc = nlp("Ali Ahmed ne chai-shai pi aur bohat acha kaam kiya")
 
 doc.tokens
-# → [("Aaj","roman_ur","ADV"), ("bohot","roman_ur","ADV"),
-#    ("Karachi","english","PROPN"), ...]
+# → ["ali", "ahmed", "ne", "chai-shai", "pi", "aur", "bohat", "acha", ...]
 
 doc.entities
-# → [{"text":"Karachi","label":"LOCATION"}]
+# → [{"text":"Ali Ahmed","label":"PERSON","start":0,"end":1}]
 
 doc.sentiment
 # → "Positive"
 
-doc.language_spans
-# → [{"text":"Aaj bohot zabardast din tha","lang":"UR"},
-#    {"text":"Karachi","lang":"EN"}]
+doc.reduplications
+# → [{"text":"chai-shai","base":"chai","echo":"shai","type":"echo","start":3,"end":3}]
+
+doc.stages              # → which stages actually ran
+doc.to_dict()           # → all annotations as a plain dict
+
+# Batch over many texts
+docs = nlp.pipe(["pehla jumla", "doosra jumla"])
 ```
+
+The `Doc` object always exposes every attribute (empty default if its stage didn't run):
+`text`, `normalized`, `tokens`, `pos`, `ner_tags`, `entities`, `sentiment`,
+`sentiment_scores`, `language_tags`, `language_spans`, `summary`, `reduplications`, `stages`.
+
+Stage aliases are accepted, e.g. `"redup"` → `reduplication`, `"codeswitch"` → `codemix`,
+`"norm"` → `normalize`.
 
 **Available pipeline stages:**
 
@@ -390,6 +449,7 @@ doc.language_spans
 | `"sentiment"` | UrduSentiment |
 | `"codemix"` | CodeSwitchDetector |
 | `"summarize"` | UrduSummarizer |
+| `"reduplication"` | ReduplicationDetector |
 
 ---
 
@@ -531,6 +591,7 @@ AenPi/
 │       ├── code_switch.py        # code-mix language detector
 │       ├── transliterator.py     # Roman ↔ Nastaliq transliteration
 │       ├── summarizer.py         # extractive summarizer
+│       ├── reduplication.py      # rule-based reduplication detector
 │       ├── intent_router.py      # offline intent classifier
 │       ├── text_stats.py         # FreqDist, concordance, collocations
 │       ├── pipeline.py           # unified Pipeline API
@@ -562,7 +623,7 @@ A full runnable demo notebook is included. Open directly in Colab:
 
 ```python
 # Cell 1 — Install
-!pip install git+https://github.com/your-username/AenPi.git
+!pip install git+https://github.com/EN-AenaHabib/AenPi.git
 
 # Cell 2 — Run pipeline
 from AenPi import urdu
@@ -608,7 +669,7 @@ If you use AenPi in your research, please cite:
   author = {Aena Habib, Eman Asghar, Dua Kamal, Aleena
             Tahir, Saqlain Abbas},
   year   = {2026},
-  url    = {https://github.com/your-username/AenPi},
+  url    = {https://github.com/EN-AenaHabib/AenPi},
   note   = {National University of Technology, Department of Artificial Intelligence}
 }
 ```
