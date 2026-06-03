@@ -6,7 +6,7 @@ Clean unified API for Urdu NLP tools
 # ================= CORE MODULES =================
 
 from .preprocessor import preprocess, tokenize, remove_punctuation
-from .stopwords import remove_stopwords, URDU_STOPWORDS
+from .stopwords import remove_stopwords, URDU_STOPWORDS , get_stopwords
 from .stemmer import UrduStemmer
 from .pos_tagger import UrduPOSTagger
 from .normalizer import UrduNormalizer
