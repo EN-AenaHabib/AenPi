@@ -35,7 +35,7 @@ Inference time   < 100 ms         vs   transformer: 300–800 ms
 GPU required     No               vs   yes (for production use)
 CO2 per 10K ops  ~0.00003 g       vs   GPT-4: ~10.5 g  (99.9% less)
 ```
-
+for now the carbon estimation is just based on the research work , no carbon is measured real time as it is not hardware based lib
 ---
 
 ## Installation
