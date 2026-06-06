@@ -27,7 +27,7 @@ Urdu is spoken by over **230 million people**. Yet every modern NLP tool either 
 - **Legacy tools** (UrduHack, iNLTK) — incomplete, undocumented, broken on real-world text
 - **Transformer models** (mBERT, XLM-R, UrduBERT) — 270M+ parameters, GPU required, 500ms+ latency per call, and enormous energy cost
 
-AenPi is built around a third option: **classical, interpretable, efficient methods** (CRFs, finite-state rules, TF-IDF, logistic regression) that run on any laptop, in any classroom, with zero API dependency.
+AenPi is built around a third option: **classical, interpretable, efficient methods** (CRFs, finite-state rules, TF-IDF, logistic regression) that run on any laptop, in any classroom, with zero API dependency , no cost .
 
 ```
 Installed size   < 50 MB          vs   mBERT: 680 MB
