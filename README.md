@@ -11,7 +11,7 @@
 
 ### A Lightweight Green-AI NLP Library for Urdu
 
-*The first unified, pip-installable Urdu NLP library that runs entirely on CPU —  
+*The first UNIFIED, pip-installable Urdu NLP library that runs entirely on CPU —  
 no transformers, no GPU, no LLM API calls required.*
 
 [Installation](#installation) · [Quick Start](#quick-start) · [Modules](#module-reference) · [Pipeline](#pipeline) · [Green AI](#green-ai) · [Benchmarks](#benchmarks)
