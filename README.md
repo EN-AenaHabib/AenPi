@@ -36,6 +36,8 @@ GPU required     No               vs   yes (for production use)
 CO2 per 10K ops  ~0.00003 g       vs   GPT-4: ~10.5 g  (99.9% less)
 ```
 for now the carbon estimation is just based on the research work , no carbon is measured real time as it is not hardware based lib
+<img width="1342" height="455" alt="image" src="https://github.com/user-attachments/assets/0c952e8e-072d-4544-8cb5-76fdb6931fcc" />
+
 ---
 
 ## Installation
